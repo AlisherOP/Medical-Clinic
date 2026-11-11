@@ -1,0 +1,4 @@
+# Prevent executing any PHP/executable files in the uploads directory
+<FilesMatch "\.(php|php5|phtml|exe|pl|py|jsp|asp|sh|cgi)$">
+    Require all denied
+</FilesMatch>

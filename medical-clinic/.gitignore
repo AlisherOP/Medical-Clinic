@@ -1,0 +1,66 @@
+# Dependencies & Build Output
+/vendor/
+/node_modules/
+/public/storage
+/public/build
+/public/hot
+/public/fonts-manifest.dev.json
+
+# Environment & Secret Configuration
+.env
+.env.backup
+.env.local
+.env.*.local
+.env.production
+auth.json
+
+# Storage Caches, Logs, and App Files
+/storage/*.key
+/storage/pail
+/storage/app/*
+!/storage/app/.gitignore
+!/storage/app/public/
+/storage/app/public/*
+!/storage/app/public/.gitignore
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
+# Medical Test Results & Patient Uploads
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# Framework Boot Caches & Testing
+.phpunit.result.cache
+/.phpunit.cache
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitkeep
+*.log
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+
+# IDEs & Code Editors
+/.codex/
+/.cursor/
+/.fleet/
+/.idea/
+/.nova/
+/.vscode/
+/.zed/
+.phpactor.json
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# OS Metadata Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
