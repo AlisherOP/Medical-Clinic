@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('lab_tests', function (Blueprint $table) {
@@ -16,17 +13,10 @@ return new class extends Migration
             $table->string('test_name', 150);
             $table->string('code', 50)->unique();
             $table->string('category', 100)->nullable();
-            $table->decimal('price', 10, 2)->default(0.00);
-            $table->integer('turnaround_time_hours')->default(24);
+            $table->decimal('price', 10, 2)->default(0.00); // Fixed
+            $table->unsignedInteger('turnaround_time_hours')->default(24);
+            $table->timestamps();
         });
     }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('lab_tests');
-    }
+    public function down(): void { Schema::dropIfExists('lab_tests'); }
 };
-
