@@ -17,7 +17,7 @@ return new class extends Migration
             $table->dateTime('scheduled_at');
             $table->date('appointment_date')->storedAs('DATE(scheduled_at)');
             $table->dateTime('active_slot')->nullable()
-                  ->storedAs("IF(status IN ('cancelled','no_show') OR deleted_at IS NOT NULL, NULL, scheduled_at)");
+                  ->storedAs("CASE WHEN status IN ('cancelled', 'no_show') OR deleted_at IS NOT NULL THEN NULL ELSE scheduled_at END");
             $table->unsignedInteger('queue_number');
             $table->enum('status', ['scheduled', 'waiting', 'in_progress', 'completed', 'cancelled', 'no_show'])->default('scheduled');
             $table->text('diagnosis')->nullable();
