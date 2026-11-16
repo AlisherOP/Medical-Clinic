@@ -66,6 +66,9 @@ class DatabaseSeeder extends Seeder
             // Random doctors spread across the existing departments, and random patients
             Doctor::factory(8)->recycle($departments)->create();
             Patient::factory(30)->create();
+
+            // Seed sample appointments across different queue statuses for today
+            $this->call(AppointmentSeeder::class);
         });
     }
 }
