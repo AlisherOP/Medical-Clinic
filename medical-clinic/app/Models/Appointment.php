@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
@@ -20,6 +21,7 @@ class Appointment extends Model
         'doctor_id',
         'type',
         'scheduled_at',
+        'duration_minutes',
         'status',
         'diagnosis',
         'notes',
@@ -29,6 +31,7 @@ class Appointment extends Model
     {
         return [
             'scheduled_at' => 'datetime',
+            'duration_minutes' => 'integer',
             'appointment_date' => 'date',
             'active_slot' => 'datetime',
         ];
@@ -52,5 +55,25 @@ class Appointment extends Model
     public function bedAssignments(): HasMany
     {
         return $this->hasMany(BedAssignment::class);
+    }
+
+    public function prescription(): HasOne
+    {
+        return $this->hasOne(Prescription::class);
+    }
+
+    public function vitals(): HasMany
+    {
+        return $this->hasMany(PatientVital::class);
+    }
+
+    public function labOrders(): HasMany
+    {
+        return $this->hasMany(LabOrder::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -45,6 +46,31 @@ class User extends Authenticatable
     public function doctor(): HasOne
     {
         return $this->hasOne(Doctor::class);
+    }
+
+    public function recordedVitals(): HasMany
+    {
+        return $this->hasMany(PatientVital::class, 'recorded_by');
+    }
+
+    public function dispensedPrescriptionItems(): HasMany
+    {
+        return $this->hasMany(PrescriptionItem::class, 'dispensed_by');
+    }
+
+    public function performedLabOrders(): HasMany
+    {
+        return $this->hasMany(LabOrder::class, 'performed_by');
+    }
+
+    public function receivedPayments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'received_by');
+    }
+
+    public function createdAppointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class, 'created_by');
     }
 
     public function hasRole(string ...$roles): bool
