@@ -20,8 +20,10 @@ class BedAssignmentFactory extends Factory
         return [
             'patient_id' => \App\Models\Patient::factory(),
             'bed_id' => \App\Models\Bed::factory(),
-            'admitted_at' => $this->dateTimeBetween('-1 week', 'now'),
+            'appointment_id' => \App\Models\Appointment::factory(),
+            'admitted_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'discharged_at' => null, // Keeps it active so your dashboard query counts it!
+            'status' => 'admitted',
         ];
     }
 }
