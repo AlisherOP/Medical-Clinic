@@ -11,10 +11,21 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        // Core KPI Metrics
         $totalPatients = Patient::count();
         $activeAppointments = Appointment::count();
         $activeBeds = BedAssignment::whereNull('discharged_at')->count();
+        $criticalPatientsCount = Patient::where('triage_priority', 'Critical')->count();
 
-        return view('dashboard', compact('totalPatients', 'activeAppointments', 'activeBeds'));
+        // Data for the Live Patient Care Registry table
+        $patients = Patient::latest()->take(10)->get();
+
+        return view('dashboard', compact(
+            'totalPatients', 
+            'activeAppointments', 
+            'activeBeds', 
+            'criticalPatientsCount',
+            'patients'
+        ));
     }
 }
