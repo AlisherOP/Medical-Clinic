@@ -228,19 +228,25 @@
                 @forelse($patients as $patient)
                   <tr class="hover:bg-[#eff4ff]/50 transition">
                     <td class="p-3.5">
-                      <p class="font-bold text-[#081c3b]">{{ $patient->name ?? 'Patient #' . $patient->id }}</p>
-                      <p class="text-[11px] text-[#6e7a8e]">{{ $patient->age ?? '35' }}y • #MRN-{{ 80000 + $patient->id }}</p>
+                      <p class="font-bold text-[#081c3b]">{{ $patient->user->name ?? 'Patient #' . $patient->id }}</p>
+                      <p class="text-[11px] text-[#6e7a8e]">MRN: {{ $patient->mrn }}</p>
                     </td>
                     <td class="p-3.5">
-                      <p class="font-medium text-[#081c3b]">{{ $patient->diagnosis ?? 'General Consultation' }}</p>
-                      <p class="text-[11px] text-[#0f766e] font-semibold">Vitals Stable • Monitored</p>
+                      <p class="font-medium text-[#081c3b]">Blood Group: <span class="font-bold text-[#0f766e]">{{ $patient->blood_group ?? 'N/A' }}</span></p>
+                      <p class="text-[11px] text-[#3e4b5d]">Allergies: {{ $patient->allergies ?? 'None reported' }}</p>
                     </td>
-                    <td class="p-3.5"><span class="px-2 py-1 rounded bg-[#bae6fd] text-[#082f49] font-semibold">● Ward 4B</span></td>
-                    <td class="p-3.5"><div class="w-6 h-6 rounded-full bg-[#0f766e] text-white flex items-center justify-center font-bold text-[10px]">DR</div></td>
+                    <td class="p-3.5">
+                      <span class="px-2 py-1 rounded bg-[#bae6fd] text-[#082f49] font-semibold text-[11px]">
+                        {{ $patient->insurance_provider ?? 'Self-Pay' }}
+                      </span>
+                    </td>
+                    <td class="p-3.5">
+                      <div class="w-6 h-6 rounded-full bg-[#0f766e] text-white flex items-center justify-center font-bold text-[10px]">DR</div>
+                    </td>
                   </tr>
                 @empty
                   <tr>
-                    <td colspan="4" class="p-6 text-center text-[#6e7a8e]">No patient records found in the database. Run your seeders or add a patient!</td>
+                    <td colspan="4" class="p-6 text-center text-[#6e7a8e]">No patient records found in the database.</td>
                   </tr>
                 @endforelse
               </tbody>

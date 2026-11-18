@@ -20,7 +20,7 @@ class DashboardController extends Controller
         $criticalPatientsCount = 2;
 
         // Data for the Live Patient Care Registry table
-        $patients = Patient::latest()->take(10)->get();
+        $patients = Patient::with('user')->latest()->take(10)->get();
 
         return view('dashboard', compact(
             'totalPatients', 
