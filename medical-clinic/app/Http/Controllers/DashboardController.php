@@ -17,6 +17,8 @@ class DashboardController extends Controller
     {
         $fromInput = $request->input('from');
         $toInput = $request->input('to');
+        $searchInput = trim((string) $request->input('search', ''));
+        $roleInput = strtolower(trim((string) $request->input('role', 'all')));
 
         $fromDate = $fromInput ? Carbon::parse($fromInput)->startOfDay() : null;
         $toDate = $toInput ? Carbon::parse($toInput)->endOfDay() : null;
@@ -50,12 +52,44 @@ class DashboardController extends Controller
             return $query;
         };
 
-        // Users / Web Entries query
+        // Users / Web Entries query (supports date range + search + role filter)
         $entriesQuery = User::query()->latest();
         if ($hasDateFilter) {
             $applyDateRange($entriesQuery, 'created_at');
         }
-        $entries = $entriesQuery->take(10)->get();
+
+        if ($searchInput !== '') {
+            $entriesQuery->where(function ($q) use ($searchInput) {
+                $like = '%' . $searchInput . '%';
+                if (Schema::hasColumn('users', 'full_name')) {
+                    $q->orWhere('full_name', 'like', $like);
+                }
+                if (Schema::hasColumn('users', 'first_name')) {
+                    $q->orWhere('first_name', 'like', $like);
+                }
+                if (Schema::hasColumn('users', 'last_name')) {
+                    $q->orWhere('last_name', 'like', $like);
+                }
+                if (Schema::hasColumn('users', 'name')) {
+                    $q->orWhere('name', 'like', $like);
+                }
+                if (Schema::hasColumn('users', 'email')) {
+                    $q->orWhere('email', 'like', $like);
+                }
+            });
+        }
+
+        if ($roleInput !== '' && $roleInput !== 'all' && Schema::hasColumn('users', 'role')) {
+            if ($roleInput === 'staff') {
+                $entriesQuery->whereIn('role', ['admin', 'doctor', 'nurse', 'receptionist', 'staff']);
+            } elseif ($roleInput === 'patient') {
+                $entriesQuery->where('role', 'patient');
+            } else {
+                $entriesQuery->where('role', $roleInput);
+            }
+        }
+
+        $entries = $entriesQuery->take(15)->get();
         $totalEntriesCount = (clone $entriesQuery)->reorder()->count();
 
         // Patients count
@@ -113,7 +147,9 @@ class DashboardController extends Controller
         $filters = [
             'from' => $fromDate ? $fromDate->toDateString() : '',
             'to' => $toDate ? $toDate->toDateString() : '',
-            'active' => $hasDateFilter,
+            'search' => $searchInput,
+            'role' => $roleInput ?: 'all',
+            'active' => $hasDateFilter || $searchInput !== '' || ($roleInput !== '' && $roleInput !== 'all'),
         ];
 
         return view('dashboard', compact(

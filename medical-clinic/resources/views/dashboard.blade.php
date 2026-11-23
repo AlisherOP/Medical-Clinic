@@ -121,8 +121,21 @@
         $sessionsMap = $latestSessions ?? collect();
         $fromVal = $filters['from'] ?? request('from', '');
         $toVal = $filters['to'] ?? request('to', '');
-        $isFiltered = $filters['active'] ?? ($fromVal !== '' || $toVal !== '');
+        $searchVal = $filters['search'] ?? request('search', '');
+        $roleVal = $filters['role'] ?? request('role', 'all');
+        $isFiltered = $filters['active'] ?? ($fromVal !== '' || $toVal !== '' || $searchVal !== '' || $roleVal !== 'all');
       @endphp
+
+      <!-- LIVE BROADCAST NOTICE BANNER (Hidden until triggered) -->
+      <div id="liveAlertBanner" class="hidden bg-[#14241E] text-white px-5 py-3.5 rounded-xl flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 text-xs">
+          <span class="px-2 py-0.5 rounded bg-white/15 font-bold uppercase tracking-wider text-[10px]">Broadcast</span>
+          <p id="liveAlertText" class="font-medium"></p>
+        </div>
+        <button type="button" onclick="dismissBroadcast()" class="text-xs text-[#C4C7BE] hover:text-white font-semibold">
+          Dismiss ✕
+        </button>
+      </div>
 
       <!-- OVERVIEW HEADER + DATE RANGE FILTER -->
       <div class="bg-white p-6 rounded-xl border border-[#E6E4DD] flex flex-wrap items-center justify-between gap-4">
@@ -130,7 +143,7 @@
           <p class="text-[10px] font-bold tracking-widest uppercase text-[#6E716A] mb-1">Clinical Precision &amp; Operations</p>
           <h2 class="text-3xl font-serif-display font-bold text-[#1C1C1B]">Dashboard Overview</h2>
           <p class="text-xs text-[#6E716A] mt-0.5">
-            @if($isFiltered)
+            @if($fromVal !== '' || $toVal !== '')
               Filtered window:
               <strong class="text-[#1C1C1B]">{{ $fromVal ?: 'Beginning' }}</strong>
               <span>→</span>
@@ -142,6 +155,12 @@
         </div>
 
         <form method="GET" action="{{ url('/') }}" class="flex flex-wrap items-center gap-2 text-xs">
+          @if($searchVal !== '')
+            <input type="hidden" name="search" value="{{ $searchVal }}">
+          @endif
+          @if($roleVal !== 'all')
+            <input type="hidden" name="role" value="{{ $roleVal }}">
+          @endif
           <input
             type="date"
             name="from"
@@ -173,14 +192,14 @@
           <div>
             <p class="text-xs font-bold text-[#1C1C1B]">
               @if($isFiltered)
-                Active Date Filter Applied
+                Active Filters Applied
               @else
                 Operational &amp; Queue Controls
               @endif
             </p>
             <p class="text-[11px] text-[#6E716A]">
               @if($isFiltered)
-                Showing metrics and entries matching your selected date window.
+                Showing metrics and web entries matching your active filter criteria.
               @else
                 Review live appointments, bed assignments, and web entry activity across the clinic.
               @endif
@@ -196,6 +215,7 @@
           </a>
           <button
             type="button"
+            onclick="openBroadcastModal()"
             class="px-3.5 py-2 rounded-lg bg-[#14241E] text-white font-semibold hover:bg-[#1E352C] transition"
           >
             Broadcast Alert
@@ -212,7 +232,7 @@
             <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EEF2EC] text-[#14241E]">Live</span>
           </div>
           <p class="text-3xl font-serif-display font-bold text-[#1C1C1B]">{{ $entryCount }}</p>
-          <p class="text-[11px] text-[#6E716A] mt-1">Recent accounts &amp; portal entries</p>
+          <p class="text-[11px] text-[#6E716A] mt-1">Matching accounts &amp; portal entries</p>
         </div>
 
         <!-- Card 2: Total Patients -->
@@ -278,13 +298,70 @@
 
         <!-- Left 2 Columns: Web Entry & Access Log -->
         <div class="lg:col-span-2 bg-white rounded-xl border border-[#E6E4DD] overflow-hidden">
-          <div class="p-4 border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-2">
+          <div class="p-4 border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 class="text-sm font-bold text-[#1C1C1B]">Traffic &amp; Web Entry Log</h3>
               <p class="text-[11px] text-[#6E716A]">Users who registered or entered the web system</p>
             </div>
-            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EEF2EC] text-[#14241E]">
-              {{ $entryCount }} Entries
+
+            <!-- Search Input Form -->
+            <form method="GET" action="{{ url('/') }}#entry-log" class="flex items-center gap-2 text-xs">
+              @if($fromVal !== '')
+                <input type="hidden" name="from" value="{{ $fromVal }}">
+              @endif
+              @if($toVal !== '')
+                <input type="hidden" name="to" value="{{ $toVal }}">
+              @endif
+              @if($roleVal !== 'all')
+                <input type="hidden" name="role" value="{{ $roleVal }}">
+              @endif
+              <input
+                type="text"
+                name="search"
+                value="{{ $searchVal }}"
+                placeholder="Search name or email..."
+                class="px-3 py-1.5 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E]"
+              >
+              <button
+                type="submit"
+                class="px-3 py-1.5 rounded-lg bg-[#14241E] text-white font-semibold hover:bg-[#1E352C] transition"
+              >
+                Search
+              </button>
+            </form>
+          </div>
+
+          <!-- Role Filter Tabs -->
+          <div class="px-4 py-2.5 bg-[#F9F8F4] border-b border-[#E6E4DD] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-1.5">
+              @php
+                $baseQuery = array_filter([
+                  'from' => $fromVal ?: null,
+                  'to' => $toVal ?: null,
+                  'search' => $searchVal ?: null,
+                ]);
+              @endphp
+              <a
+                href="{{ url('/') . ($baseQuery ? '?' . http_build_query($baseQuery) : '') }}#entry-log"
+                class="px-3 py-1 rounded-md font-semibold transition {{ $roleVal === 'all' ? 'bg-[#14241E] text-white' : 'text-[#6E716A] hover:bg-white' }}"
+              >
+                All Entries
+              </a>
+              <a
+                href="{{ url('/') . '?' . http_build_query(array_merge($baseQuery, ['role' => 'staff'])) }}#entry-log"
+                class="px-3 py-1 rounded-md font-semibold transition {{ $roleVal === 'staff' ? 'bg-[#14241E] text-white' : 'text-[#6E716A] hover:bg-white' }}"
+              >
+                Clinical Staff
+              </a>
+              <a
+                href="{{ url('/') . '?' . http_build_query(array_merge($baseQuery, ['role' => 'patient'])) }}#entry-log"
+                class="px-3 py-1 rounded-md font-semibold transition {{ $roleVal === 'patient' ? 'bg-[#14241E] text-white' : 'text-[#6E716A] hover:bg-white' }}"
+              >
+                Patients
+              </a>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EEF2EC] text-[#14241E]">
+              {{ $entryCount }} Total
             </span>
           </div>
 
@@ -305,14 +382,17 @@
                     $enteredAt = ($session && !empty($session->last_activity))
                         ? \Carbon\Carbon::createFromTimestamp($session->last_activity)->diffForHumans()
                         : ($entryUser->created_at?->diffForHumans() ?? 'Recently');
+                    $displayName = $entryUser->full_name
+                        ?? trim(($entryUser->first_name ?? '') . ' ' . ($entryUser->last_name ?? ''))
+                        ?: ($entryUser->name ?? 'User #' . $entryUser->id);
                     $initials = strtoupper(
-                        mb_substr($entryUser->first_name ?? '', 0, 1) .
+                        mb_substr($entryUser->first_name ?? $displayName, 0, 1) .
                         mb_substr($entryUser->last_name ?? '', 0, 1)
                     ) ?: 'U';
                   @endphp
                   <tr class="hover:bg-[#F9F8F4] transition">
                     <td class="p-3.5">
-                      <p class="font-bold text-[#1C1C1B]">{{ $entryUser->full_name }}</p>
+                      <p class="font-bold text-[#1C1C1B]">{{ $displayName }}</p>
                       <p class="text-[11px] text-[#6E716A]">{{ $entryUser->email }}</p>
                     </td>
                     <td class="p-3.5">
@@ -360,6 +440,12 @@
               <span class="font-medium text-[#1C1C1B]">Assigned Beds</span>
               <span class="font-bold text-[#1C1C1B]">{{ $bedCount }}</span>
             </div>
+            <div class="flex items-center justify-between p-3 rounded-lg bg-[#F9F8F4]">
+              <span class="font-medium text-[#1C1C1B]">Completion Rate</span>
+              <span class="font-bold text-[#14241E]">
+                {{ $appointmentCount > 0 ? round(($completedCount / $appointmentCount) * 100) . '%' : '0%' }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -367,6 +453,70 @@
 
     </main>
   </div>
+
+  <!-- BROADCAST ALERT MODAL -->
+  <div id="broadcastModal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl border border-[#E6E4DD] max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-[#E6E4DD] pb-3">
+        <div>
+          <h4 class="text-base font-bold text-[#1C1C1B]">Broadcast Clinic Alert</h4>
+          <p class="text-[11px] text-[#6E716A]">Post an operational notice across active stations</p>
+        </div>
+        <button type="button" onclick="closeBroadcastModal()" class="text-xs text-[#6E716A] hover:text-[#1C1C1B]">✕</button>
+      </div>
+      <div class="space-y-2 text-xs">
+        <label class="block font-semibold text-[#1C1C1B]">Alert Message</label>
+        <textarea
+          id="broadcastInput"
+          rows="3"
+          placeholder="e.g. Outpatient Wing B intake queue running 10 minutes behind schedule."
+          class="w-full p-2.5 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E]"
+        ></textarea>
+      </div>
+      <div class="flex items-center justify-end gap-2 text-xs pt-2">
+        <button
+          type="button"
+          onclick="closeBroadcastModal()"
+          class="px-3.5 py-2 rounded-lg border border-[#E6E4DD] text-[#1C1C1B] font-semibold hover:bg-[#F9F8F4]"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick="sendBroadcast()"
+          class="px-4 py-2 rounded-lg bg-[#14241E] text-white font-semibold hover:bg-[#1E352C]"
+        >
+          Send Notice
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openBroadcastModal() {
+      document.getElementById('broadcastModal').classList.remove('hidden');
+      document.getElementById('broadcastInput').focus();
+    }
+
+    function closeBroadcastModal() {
+      document.getElementById('broadcastModal').classList.add('hidden');
+    }
+
+    function sendBroadcast() {
+      const input = document.getElementById('broadcastInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      document.getElementById('liveAlertText').textContent = message;
+      document.getElementById('liveAlertBanner').classList.remove('hidden');
+      input.value = '';
+      closeBroadcastModal();
+    }
+
+    function dismissBroadcast() {
+      document.getElementById('liveAlertBanner').classList.add('hidden');
+    }
+  </script>
 
 </body>
 </html>
