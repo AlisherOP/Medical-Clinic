@@ -1,12 +1,11 @@
 <?php
 
 use App\Http\Controllers\AppointmentController;
-use App\Http\Controllers\OperationScheduleController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect()->route('appointments.index');
-});
+Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index']);
 
 Route::prefix('appointments')->name('appointments.')->group(function () {
     Route::get('/', [AppointmentController::class, 'index'])->name('index');
@@ -15,8 +14,4 @@ Route::prefix('appointments')->name('appointments.')->group(function () {
     Route::patch('/{appointment}/start', [AppointmentController::class, 'start'])->name('start');
     Route::patch('/{appointment}/complete', [AppointmentController::class, 'complete'])->name('complete');
     Route::patch('/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('cancel');
-});
-
-Route::prefix('operations')->name('operations.')->group(function () {
-    Route::get('/', [OperationScheduleController::class, 'index'])->name('index');
 });
