@@ -110,26 +110,51 @@
     <!-- SCROLLABLE DASHBOARD BODY -->
     <main class="flex-1 p-8 space-y-6 overflow-y-auto">
 
+      @php
+        $entryCount = $totalEntriesCount ?? (isset($entries) ? $entries->count() : 0);
+        $patientCount = $totalPatients ?? 0;
+        $appointmentCount = $activeAppointments ?? 0;
+        $completedCount = $completedAppointments ?? 0;
+        $cancelledCount = $cancelledAppointments ?? 0;
+        $pendingCount = $pendingAppointments ?? 0;
+        $bedCount = $activeBeds ?? 0;
+        $sessionsMap = $latestSessions ?? collect();
+        $fromVal = $filters['from'] ?? request('from', '');
+        $toVal = $filters['to'] ?? request('to', '');
+        $isFiltered = $filters['active'] ?? ($fromVal !== '' || $toVal !== '');
+      @endphp
+
       <!-- OVERVIEW HEADER + DATE RANGE FILTER -->
       <div class="bg-white p-6 rounded-xl border border-[#E6E4DD] flex flex-wrap items-center justify-between gap-4">
         <div>
           <p class="text-[10px] font-bold tracking-widest uppercase text-[#6E716A] mb-1">Clinical Precision &amp; Operations</p>
           <h2 class="text-3xl font-serif-display font-bold text-[#1C1C1B]">Dashboard Overview</h2>
-          <p class="text-xs text-[#6E716A] mt-0.5">Real-time clinic performance metrics and system entry activity</p>
+          <p class="text-xs text-[#6E716A] mt-0.5">
+            @if($isFiltered)
+              Filtered window:
+              <strong class="text-[#1C1C1B]">{{ $fromVal ?: 'Beginning' }}</strong>
+              <span>→</span>
+              <strong class="text-[#1C1C1B]">{{ $toVal ?: 'Today' }}</strong>
+            @else
+              Real-time clinic performance metrics and system entry activity (All dates)
+            @endif
+          </p>
         </div>
 
         <form method="GET" action="{{ url('/') }}" class="flex flex-wrap items-center gap-2 text-xs">
           <input
             type="date"
             name="from"
-            value="{{ request('from', now()->toDateString()) }}"
+            value="{{ $fromVal }}"
+            aria-label="From date"
             class="px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E]"
           >
           <span class="text-[#6E716A]">→</span>
           <input
             type="date"
             name="to"
-            value="{{ request('to', now()->toDateString()) }}"
+            value="{{ $toVal }}"
+            aria-label="To date"
             class="px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E]"
           >
           <button
@@ -146,8 +171,20 @@
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-lg bg-[#14241E] text-white flex items-center justify-center text-sm">🔔</div>
           <div>
-            <p class="text-xs font-bold text-[#1C1C1B]">Operational &amp; Queue Controls</p>
-            <p class="text-[11px] text-[#6E716A]">Review live appointments, bed assignments, and web entry activity across the clinic.</p>
+            <p class="text-xs font-bold text-[#1C1C1B]">
+              @if($isFiltered)
+                Active Date Filter Applied
+              @else
+                Operational &amp; Queue Controls
+              @endif
+            </p>
+            <p class="text-[11px] text-[#6E716A]">
+              @if($isFiltered)
+                Showing metrics and entries matching your selected date window.
+              @else
+                Review live appointments, bed assignments, and web entry activity across the clinic.
+              @endif
+            </p>
           </div>
         </div>
         <div class="flex items-center gap-2 text-xs">
@@ -166,15 +203,7 @@
         </div>
       </div>
 
-      <!-- KPI METRIC CARDS (4 COLUMNS) -->
-      @php
-        $entryCount = isset($entries) ? $entries->count() : 0;
-        $patientCount = $totalPatients ?? 0;
-        $appointmentCount = $activeAppointments ?? 0;
-        $bedCount = $activeBeds ?? 0;
-        $sessionsMap = $latestSessions ?? collect();
-      @endphp
-
+      <!-- PRIMARY KPI METRIC CARDS (4 COLUMNS) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Card 1: Web Entries / Users -->
         <div class="bg-white p-5 rounded-xl border border-[#E6E4DD]">
@@ -214,6 +243,33 @@
           </div>
           <p class="text-3xl font-serif-display font-bold text-[#1C1C1B]">{{ $bedCount }}</p>
           <p class="text-[11px] text-[#6E716A] mt-1">Currently occupied beds</p>
+        </div>
+      </div>
+
+      <!-- OPERATIONAL APPOINTMENT STATUS ROW (3 COLUMNS) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-[#E6E4DD] flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-[#6E716A]">Completed Visits</p>
+            <p class="text-2xl font-serif-display font-bold text-[#1C1C1B] mt-0.5">{{ $completedCount }}</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EEF2EC] text-[#14241E]">Completed</span>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-[#E6E4DD] flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-[#6E716A]">Pending / Scheduled</p>
+            <p class="text-2xl font-serif-display font-bold text-[#1C1C1B] mt-0.5">{{ $pendingCount }}</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F3F1EA] text-[#1C1C1B]">In Queue</span>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-[#E6E4DD] flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-[#6E716A]">Cancelled Visits</p>
+            <p class="text-2xl font-serif-display font-bold text-[#1C1C1B] mt-0.5">{{ $cancelledCount }}</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F9EAEA] text-[#8B2626]">Cancelled</span>
         </div>
       </div>
 
@@ -276,7 +332,7 @@
                   </tr>
                 @empty
                   <tr>
-                    <td colspan="4" class="p-6 text-center text-[#6E716A]">No web entry records found yet.</td>
+                    <td colspan="4" class="p-6 text-center text-[#6E716A]">No web entry records found for the selected criteria.</td>
                   </tr>
                 @endforelse
               </tbody>
