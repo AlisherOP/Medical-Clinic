@@ -37,7 +37,7 @@
 
       <!-- Navigation Links -->
       <nav class="space-y-1 text-xs font-medium">
-        <a href="{{ url('/') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/15 text-white font-semibold">
+        <a href="{{ route('dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/15 text-white font-semibold">
           <span>⊞</span>
           <span>Dashboard</span>
         </a>
@@ -154,7 +154,7 @@
           </p>
         </div>
 
-        <form method="GET" action="{{ url('/') }}" class="flex flex-wrap items-center gap-2 text-xs">
+        <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-center gap-2 text-xs">
           @if($searchVal !== '')
             <input type="hidden" name="search" value="{{ $searchVal }}">
           @endif
@@ -208,7 +208,7 @@
         </div>
         <div class="flex items-center gap-2 text-xs">
           <a
-            href="{{ url('/') }}"
+            href="{{ route('dashboard') }}"
             class="px-3.5 py-2 rounded-lg bg-white border border-[#E6E4DD] font-semibold text-[#1C1C1B] hover:bg-[#F9F8F4] transition"
           >
             Reset Filter
@@ -305,7 +305,7 @@
             </div>
 
             <!-- Search Input Form -->
-            <form method="GET" action="{{ url('/') }}#entry-log" class="flex items-center gap-2 text-xs">
+            <form method="GET" action="{{ route('dashboard') }}#entry-log" class="flex items-center gap-2 text-xs">
               @if($fromVal !== '')
                 <input type="hidden" name="from" value="{{ $fromVal }}">
               @endif
@@ -342,19 +342,19 @@
                 ]);
               @endphp
               <a
-                href="{{ url('/') . ($baseQuery ? '?' . http_build_query($baseQuery) : '') }}#entry-log"
+                href="{{ route('dashboard') . ($baseQuery ? '?' . http_build_query($baseQuery) : '') }}#entry-log"
                 class="px-3 py-1 rounded-md font-semibold transition {{ $roleVal === 'all' ? 'bg-[#14241E] text-white' : 'text-[#6E716A] hover:bg-white' }}"
               >
                 All Entries
               </a>
               <a
-                href="{{ url('/') . '?' . http_build_query(array_merge($baseQuery, ['role' => 'staff'])) }}#entry-log"
+                href="{{ route('dashboard') . '?' . http_build_query(array_merge($baseQuery, ['role' => 'staff'])) }}#entry-log"
                 class="px-3 py-1 rounded-md font-semibold transition {{ $roleVal === 'staff' ? 'bg-[#14241E] text-white' : 'text-[#6E716A] hover:bg-white' }}"
               >
                 Clinical Staff
               </a>
               <a
-                href="{{ url('/') . '?' . http_build_query(array_merge($baseQuery, ['role' => 'patient'])) }}#entry-log"
+                href="{{ route('dashboard') . '?' . http_build_query(array_merge($baseQuery, ['role' => 'patient'])) }}#entry-log"
                 class="px-3 py-1 rounded-md font-semibold transition {{ $roleVal === 'patient' ? 'bg-[#14241E] text-white' : 'text-[#6E716A] hover:bg-white' }}"
               >
                 Patients
