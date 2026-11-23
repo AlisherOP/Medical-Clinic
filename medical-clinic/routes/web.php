@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\OperationScheduleController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -14,4 +15,8 @@ Route::prefix('appointments')->name('appointments.')->group(function () {
     Route::patch('/{appointment}/start', [AppointmentController::class, 'start'])->name('start');
     Route::patch('/{appointment}/complete', [AppointmentController::class, 'complete'])->name('complete');
     Route::patch('/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('cancel');
+});
+
+Route::prefix('operations')->name('operations.')->group(function () {
+    Route::get('/', [OperationScheduleController::class, 'index'])->name('index');
 });
