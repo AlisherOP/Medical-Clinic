@@ -42,6 +42,17 @@
         .nav-item.active { background: var(--primary); color: #ffffff; font-weight: 600; }
         .nav-badge-admin { margin-left: auto; font-size: 10px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
 
+        /* Sidebar Footer / Login Area */
+        .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border); background: #fbfdff; }
+        .sidebar-login-btn { width: 100%; justify-content: center; padding: 11px 16px; }
+        .sidebar-hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+        .sidebar-user { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .sidebar-avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; background: var(--primary-light); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+        .sidebar-user-info { display: flex; flex-direction: column; min-width: 0; }
+        .sidebar-user-info strong { font-size: 13px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-user-info span { font-size: 11px; color: var(--text-muted); }
+        .sidebar-logout-form { margin: 0; }
+
         /* Main Workspace */
         .main-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -186,6 +197,28 @@
                 <span class="nav-badge-admin">Admin</span>
             </a>
         </nav>
+
+        <!-- Log In at the bottom of the side menu -->
+        <div class="sidebar-footer">
+            @auth
+                <div class="sidebar-user">
+                    <div class="sidebar-avatar">{{ strtoupper(substr(auth()->user()->first_name, 0, 1)) }}</div>
+                    <div class="sidebar-user-info">
+                        <strong>{{ auth()->user()->full_name }}</strong>
+                        <span>{{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}</span>
+                    </div>
+                </div>
+                <form action="{{ route('logout') }}" method="POST" class="sidebar-logout-form">
+                    @csrf
+                    <button type="submit" class="btn btn-secondary sidebar-login-btn">Log Out</button>
+                </form>
+            @else
+                <a href="{{ route('login') }}" class="btn btn-primary sidebar-login-btn">
+                    Log In
+                </a>
+                <p class="sidebar-hint">Sign in to access the clinic system</p>
+            @endauth
+        </div>
     </aside>
 
     <!-- Main Workspace -->
