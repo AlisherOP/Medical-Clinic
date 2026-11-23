@@ -67,9 +67,8 @@ class DatabaseSeeder extends Seeder
             Doctor::factory(8)->recycle($departments)->create();
             Patient::factory(30)->create();
 
-            // Add these lines to generate demo appointments and beds
-            \App\Models\Appointment::factory(15)->create();
-            \App\Models\BedAssignment::factory(5)->create();
+            // Seed sample appointments across different queue statuses for today
+            $this->call(AppointmentSeeder::class);
         });
     }
 }

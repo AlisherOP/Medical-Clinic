@@ -2,7 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Bed;
 use App\Models\BedAssignment;
+use App\Models\Patient;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,20 +12,26 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class BedAssignmentFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = BedAssignment::class;
+
     public function definition(): array
     {
         return [
-            'patient_id' => \App\Models\Patient::factory(),
-            'bed_id' => \App\Models\Bed::factory(),
-            'appointment_id' => \App\Models\Appointment::factory(),
-            'admitted_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
-            'discharged_at' => null, // Keeps it active so your dashboard query counts it!
+            'patient_id' => Patient::factory(),
+            'bed_id' => Bed::factory(),
+            'appointment_id' => null,
+            'admitted_at' => now(),
+            'discharged_at' => null,
             'status' => 'admitted',
         ];
+    }
+
+    public function discharged(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'discharged',
+            'admitted_at' => now()->subDays(2),
+            'discharged_at' => now()->subDay(),
+        ]);
     }
 }

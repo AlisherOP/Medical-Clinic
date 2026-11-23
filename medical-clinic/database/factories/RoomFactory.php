@@ -10,17 +10,14 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class RoomFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = Room::class;
+
     public function definition(): array
     {
         return [
-            'room_number' => $this->faker->unique()->bothify('R-###'),
-            'type' => 1,
-            'daily_rate' => $this->faker->randomFloat(2, 50, 500),
+            'room_number' => 'R-'.fake()->unique()->numberBetween(100, 999),
+            'type' => fake()->randomElement(['general_ward', 'icu', 'operation_theater', 'private']),
+            'daily_rate' => fake()->randomElement([500.00, 1000.00, 2000.00, 3500.00]),
             'is_active' => true,
         ];
     }

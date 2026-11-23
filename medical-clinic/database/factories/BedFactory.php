@@ -11,16 +11,13 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class BedFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = Bed::class;
+
     public function definition(): array
     {
         return [
             'room_id' => Room::factory(),
-            'bed_number' => $this->faker->unique()->bothify('B-###'),
+            'bed_number' => 'B-'.fake()->numberBetween(1, 20),
         ];
     }
 }
