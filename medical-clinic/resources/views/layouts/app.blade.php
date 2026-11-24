@@ -1,152 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Medical Clinic HMS')</title>
-    <style>
-        :root {
-            --primary: #0284c7;
-            --primary-dark: #0369a1;
-            --primary-light: #e0f2fe;
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --border: #e2e8f0;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --success: #16a34a;
-            --success-light: #dcfce7;
-            --warning: #d97706;
-            --warning-light: #fef3c7;
-            --danger: #dc2626;
-            --danger-light: #fee2e2;
-            --info: #2563eb;
-            --info-light: #dbeafe;
-            --purple: #7c3aed;
-            --purple-light: #ede9fe;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>@yield('title', 'QMS Clinical — Hospital Operations')</title>
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { background-color: var(--bg); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+  <!-- Tailwind CSS & Aura Design System Typography -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-        /* Sidebar Navigation */
-        .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-        .clinic-brand { padding: 22px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
-        .brand-icon { width: 38px; height: 38px; background: var(--primary); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
-        .brand-text h2 { font-size: 16px; font-weight: 700; color: var(--text-main); }
-        .brand-text p { font-size: 12px; color: var(--text-muted); }
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: #F9F8F4;
+      color: #1C1C1B;
+    }
+    .font-serif-display {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+    }
+    /* Subtle custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F9F8F4;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D4DDD0;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #A3A89E;
+    }
+  </style>
 
-        .nav-menu { padding: 16px 12px; flex: 1; overflow-y: auto; }
-        .nav-section-title { font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); padding: 8px 12px; letter-spacing: 0.05em; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; color: var(--text-muted); text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500; margin-bottom: 3px; transition: all 0.15s; }
-        .nav-item:hover { background: #f1f5f9; color: var(--text-main); }
-        .nav-item.active { background: var(--primary); color: #ffffff; font-weight: 600; }
-        .nav-badge-admin { margin-left: auto; font-size: 10px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-
-        /* Main Workspace */
-        .main-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-        /* Top Bar */
-        .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; }
-        .topbar-left { display: flex; align-items: center; gap: 16px; }
-        .topbar-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
-        .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--success-light); color: var(--success); font-size: 12px; font-weight: 600; border-radius: 999px; }
-        .live-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
-
-        .topbar-actions { display: flex; align-items: center; gap: 12px; }
-        .btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: background 0.15s; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-dark); }
-        .btn-secondary { background: #f1f5f9; color: var(--text-main); border: 1px solid var(--border); }
-        .btn-secondary:hover { background: #e2e8f0; }
-
-        /* Content Area */
-        .content-area { flex: 1; overflow-y: auto; padding: 24px 28px; }
-
-        /* 4 Top Metric / KPI Bars */
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 24px; }
-        .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; position: relative; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-        .kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
-        .kpi-card.border-primary::before { background: var(--primary); }
-        .kpi-card.border-success::before { background: var(--success); }
-        .kpi-card.border-danger::before { background: var(--danger); }
-        .kpi-card.border-purple::before { background: var(--purple); }
-
-        .kpi-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .kpi-card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.04em; }
-        .kpi-card-icon { font-size: 18px; }
-        .kpi-card-value { font-size: 28px; font-weight: 800; line-height: 1.1; margin-bottom: 8px; }
-        .kpi-card-sub { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 4px; }
-
-        .kpi-sub-emergency { background: var(--danger-light); color: var(--danger); }
-        .kpi-sub-active { background: var(--info-light); color: var(--info); }
-        .kpi-sub-audit { background: #f1f5f9; color: #475569; }
-        .kpi-sub-duration { background: var(--purple-light); color: var(--purple); }
-
-        /* Progress Mini-bar */
-        .kpi-progress-bar { width: 100%; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-top: 10px; }
-        .kpi-progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
-        .fill-purple { background: var(--purple); }
-        .fill-success { background: var(--success); }
-
-        @yield('styles')
-    </style>
+  @yield('styles')
 </head>
-<body>
+<body class="min-h-screen flex antialiased bg-[#F9F8F4] text-[#1C1C1B]">
 
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar">
-        <div class="clinic-brand">
-            <div class="brand-icon">MC</div>
-            <div class="brand-text">
-                <h2>Medical Clinic</h2>
-                <p>Hospital System</p>
-            </div>
+  <!-- LEFT PERSISTENT SIDEBAR (Deep Forest #14241E + QMS Navigation) -->
+  <aside class="w-64 bg-[#14241E] text-[#E6E4DD] flex flex-col justify-between p-5 min-h-screen shrink-0">
+    <div class="space-y-6">
+      <!-- Brand Header -->
+      <div class="flex items-center gap-3 px-2 pb-4 border-b border-white/10">
+        <div class="w-9 h-9 rounded-lg bg-[#E6E4DD] text-[#14241E] flex items-center justify-center font-serif-display font-bold text-xl">
+          Q
         </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-wide text-white uppercase">QMS Clinical</h1>
+          <p class="text-[11px] text-[#A3A89E]">Operations &amp; Registry</p>
+        </div>
+      </div>
 
-        <nav class="nav-menu">
-            <div class="nav-section-title">Clinical Workspace</div>
-            <a href="#" class="nav-item">
-                <span>📊</span> Dashboard
-            </a>
-            <a href="{{ route('appointments.index') }}" class="nav-item {{ request()->routeIs('appointments.*') ? 'active' : '' }}">
-                <span>🗓️</span> Appointments
-            </a>
-            <a href="#" class="nav-item">
-                <span>👨‍⚕️</span> Doctors
-            </a>
-            <a href="#" class="nav-item">
-                <span>🩺</span> Services
-            </a>
-            <a href="{{ route('operations.index') }}" class="nav-item {{ request()->routeIs('operations.*') ? 'active' : '' }}">
-                <span>🏥</span> Operation Schedule
-            </a>
+      <!-- Navigation Links -->
+      <nav class="space-y-1 text-xs font-medium">
+        <a href="{{ route('dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg {{ request()->routeIs('dashboard*') ? 'bg-white/15 text-white font-semibold' : 'text-[#C4C7BE] hover:bg-white/10 hover:text-white transition' }}">
+          <span>⊞</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="{{ route('dashboard') }}#doctors" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+          <span>🩺</span>
+          <span>Doctors</span>
+        </a>
+        <a href="{{ route('dashboard') }}#services" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+          <span>📋</span>
+          <span>Services</span>
+        </a>
+        <a href="{{ route('appointments.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg {{ request()->routeIs('appointments.*') ? 'bg-white/15 text-white font-semibold' : 'text-[#C4C7BE] hover:bg-white/10 hover:text-white transition' }}">
+          <span>📅</span>
+          <span>Appointments</span>
+        </a>
+        <a href="{{ route('operations.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg {{ request()->routeIs('operations.*') ? 'bg-white/15 text-white font-semibold' : 'text-[#C4C7BE] hover:bg-white/10 hover:text-white transition' }}">
+          <span>⏱</span>
+          <span>Operation Schedule</span>
+        </a>
+        <a href="{{ route('dashboard') }}#analytics" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+          <span>📊</span>
+          <span>Analytics</span>
+        </a>
+        <a href="{{ route('dashboard') }}#reports" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+          <span>📄</span>
+          <span>Reports</span>
+        </a>
+        <a href="{{ route('dashboard') }}#entry-log" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+          <span>👥</span>
+          <span>Users &amp; Entries</span>
+        </a>
+        <a href="{{ route('dashboard') }}#audit-logs" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+          <span>🛡</span>
+          <span>Audit Logs</span>
+        </a>
+      </nav>
+    </div>
 
-            <div class="nav-section-title" style="margin-top: 18px;">Administration</div>
-            <a href="#" class="nav-item">
-                <span>👥</span> Users
-                <span class="nav-badge-admin">Admin</span>
-            </a>
-            <a href="#" class="nav-item">
-                <span>📈</span> Analytics
-            </a>
-            <a href="#" class="nav-item">
-                <span>📑</span> Reports
-            </a>
-            <a href="#" class="nav-item">
-                <span>🛡️</span> Audit Logs
-                <span class="nav-badge-admin">Admin</span>
-            </a>
-        </nav>
-    </aside>
+    <!-- Signed-In User Footer -->
+    <div class="pt-4 border-t border-white/10 space-y-3">
+      <div class="px-2">
+        <p class="text-[10px] uppercase tracking-wider text-[#A3A89E]">Signed in as</p>
+        <p class="text-xs font-bold text-white mt-0.5">{{ auth()->user()->full_name ?? 'Alisher / Lead' }}</p>
+        <p class="text-[11px] text-[#A3A89E] capitalize">{{ auth()->user()->role ?? 'admin' }}</p>
+      </div>
+      <a href="#" class="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-white/15 text-xs text-[#E6E4DD] hover:bg-white/10 transition">
+        <span>↪</span>
+        <span>Sign Out</span>
+      </a>
+    </div>
+  </aside>
 
-    <!-- Main Workspace -->
-    <main class="main-container">
-        @yield('content')
+  <!-- MAIN CONTENT SHELL -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <!-- TOP BAR -->
+    <header class="h-14 bg-white border-b border-[#E6E4DD] px-8 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold text-[#1C1C1B]">@yield('header_title', 'Clinical Workspace')</span>
+        @hasSection('header_badge')
+          @yield('header_badge')
+        @endif
+      </div>
+      <div class="flex items-center gap-3">
+        @yield('header_actions')
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#EEF2EC] text-[#14241E] border border-[#D4DDD0]">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+          Live Sync Active
+        </span>
+        <span class="px-3 py-1 rounded-md text-[11px] font-semibold bg-[#14241E] text-white">
+          English
+        </span>
+      </div>
+    </header>
+
+    <!-- SCROLLABLE PAGE BODY -->
+    <main class="flex-1 p-8 space-y-6 overflow-y-auto">
+      @yield('content')
     </main>
+  </div>
 
-    @yield('scripts')
+  @yield('scripts')
 </body>
 </html>

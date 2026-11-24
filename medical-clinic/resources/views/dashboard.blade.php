@@ -53,7 +53,7 @@
           <span>📅</span>
           <span>Appointments</span>
         </a>
-        <a href="#operations" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+        <a href="{{ Route::has('operations.index') ? route('operations.index') : '#operations' }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
           <span>⏱</span>
           <span>Operation Schedule</span>
         </a>
