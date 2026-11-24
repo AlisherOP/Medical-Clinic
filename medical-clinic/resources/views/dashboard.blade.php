@@ -213,6 +213,12 @@
           >
             Reset Filter
           </a>
+          <a
+            href="{{ route('dashboard.export', request()->only(['from', 'to', 'search', 'role'])) }}"
+            class="px-3.5 py-2 rounded-lg bg-white border border-[#E6E4DD] font-semibold text-[#1C1C1B] hover:bg-[#F9F8F4] transition"
+          >
+            Export CSV
+          </a>
           <button
             type="button"
             onclick="openBroadcastModal()"

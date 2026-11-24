@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DashboardController extends Controller
 {
@@ -164,5 +165,82 @@ class DashboardController extends Controller
             'latestSessions',
             'filters'
         ));
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $fromInput = $request->input('from');
+        $toInput = $request->input('to');
+        $searchInput = trim((string) $request->input('search', ''));
+        $roleInput = strtolower(trim((string) $request->input('role', 'all')));
+
+        $fromDate = $fromInput ? Carbon::parse($fromInput)->startOfDay() : null;
+        $toDate = $toInput ? Carbon::parse($toInput)->endOfDay() : null;
+
+        if ($fromDate && $toDate && $fromDate->gt($toDate)) {
+            [$fromDate, $toDate] = [$toDate->copy()->startOfDay(), $fromDate->copy()->endOfDay()];
+        }
+
+        $entriesQuery = User::query()->latest();
+        if ($fromDate && $toDate) {
+            $entriesQuery->whereBetween('created_at', [$fromDate, $toDate]);
+        } elseif ($fromDate) {
+            $entriesQuery->where('created_at', '>=', $fromDate);
+        } elseif ($toDate) {
+            $entriesQuery->where('created_at', '<=', $toDate);
+        }
+
+        if ($searchInput !== '') {
+            $entriesQuery->where(function ($q) use ($searchInput) {
+                $like = '%' . $searchInput . '%';
+                foreach (['full_name', 'first_name', 'last_name', 'name', 'email'] as $col) {
+                    if (Schema::hasColumn('users', $col)) {
+                        $q->orWhere($col, 'like', $like);
+                    }
+                }
+            });
+        }
+
+        if ($roleInput !== '' && $roleInput !== 'all' && Schema::hasColumn('users', 'role')) {
+            if ($roleInput === 'staff') {
+                $entriesQuery->whereIn('role', ['admin', 'doctor', 'nurse', 'receptionist', 'staff']);
+            } elseif ($roleInput === 'patient') {
+                $entriesQuery->where('role', 'patient');
+            } else {
+                $entriesQuery->where('role', $roleInput);
+            }
+        }
+
+        $entries = $entriesQuery->get();
+        $filename = 'qms-dashboard-report-' . now()->format('Y-m-d_His') . '.csv';
+
+        return response()->streamDownload(function () use ($entries, $fromInput, $toInput, $roleInput) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, ['QMS Clinical Operations Report']);
+            fputcsv($handle, ['Generated At', now()->toDateTimeString()]);
+            fputcsv($handle, ['Date Window', ($fromInput ?: 'All') . ' to ' . ($toInput ?: 'Present')]);
+            fputcsv($handle, ['Role Filter', strtoupper($roleInput ?: 'all')]);
+            fputcsv($handle, []);
+            fputcsv($handle, ['ID', 'Name', 'Email', 'Role', 'Registered At']);
+
+            foreach ($entries as $user) {
+                $name = $user->full_name
+                    ?? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''))
+                    ?: ($user->name ?? 'User #' . $user->id);
+
+                fputcsv($handle, [
+                    $user->id,
+                    $name,
+                    $user->email ?? '',
+                    $user->role ?? 'user',
+                    $user->created_at?->toDateTimeString() ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 }
