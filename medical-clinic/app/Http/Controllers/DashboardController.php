@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -50,6 +51,7 @@ class DashboardController extends Controller
             } elseif ($toDate) {
                 $query->where($column, '<=', $toDate);
             }
+
             return $query;
         };
 
@@ -153,6 +155,8 @@ class DashboardController extends Controller
             'active' => $hasDateFilter || $searchInput !== '' || ($roleInput !== '' && $roleInput !== 'all'),
         ];
 
+        $activeBroadcast = Cache::get('qms_active_broadcast');
+
         return view('dashboard', compact(
             'totalPatients',
             'activeAppointments',
@@ -163,7 +167,8 @@ class DashboardController extends Controller
             'entries',
             'totalEntriesCount',
             'latestSessions',
-            'filters'
+            'filters',
+            'activeBroadcast'
         ));
     }
 
@@ -242,5 +247,32 @@ class DashboardController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv',
         ]);
+    }
+
+    public function broadcast(Request $request)
+    {
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:280'],
+        ]);
+
+        $user = $request->user();
+        $sender = $user?->full_name
+            ?? $user?->name
+            ?? 'Charge Station';
+
+        Cache::put('qms_active_broadcast', [
+            'message' => trim($validated['message']),
+            'sender' => $sender,
+            'sent_at' => now()->format('H:i'),
+        ], now()->addHours(12));
+
+        return redirect()->route('dashboard')->with('status', 'Clinic alert broadcast to all active stations.');
+    }
+
+    public function dismissBroadcast()
+    {
+        Cache::forget('qms_active_broadcast');
+
+        return redirect()->route('dashboard');
     }
 }

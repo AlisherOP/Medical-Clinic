@@ -41,11 +41,11 @@
           <span>⊞</span>
           <span>Dashboard</span>
         </a>
-        <a href="#doctors" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+        <a href="{{ Route::has('doctors.index') ? route('doctors.index') : '#doctors' }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
           <span>🩺</span>
           <span>Doctors</span>
         </a>
-        <a href="#services" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
+        <a href="{{ Route::has('services.index') ? route('services.index') : '#services' }}" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#C4C7BE] hover:bg-white/10 hover:text-white transition">
           <span>📋</span>
           <span>Services</span>
         </a>
@@ -80,13 +80,23 @@
     <div class="pt-4 border-t border-white/10 space-y-3">
       <div class="px-2">
         <p class="text-[10px] uppercase tracking-wider text-[#A3A89E]">Signed in as</p>
-        <p class="text-xs font-bold text-white mt-0.5">{{ auth()->user()->full_name ?? 'Aslan Rahmatulloev' }}</p>
+        <p class="text-xs font-bold text-white mt-0.5">{{ auth()->user()->full_name ?? auth()->user()->name ?? 'Aslan Rahmatulloev' }}</p>
         <p class="text-[11px] text-[#A3A89E] capitalize">{{ auth()->user()->role ?? 'admin' }}</p>
       </div>
-      <a href="#" class="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-white/15 text-xs text-[#E6E4DD] hover:bg-white/10 transition">
-        <span>↪</span>
-        <span>Sign Out</span>
-      </a>
+      @if(Route::has('logout'))
+        <form method="POST" action="{{ route('logout') }}">
+          @csrf
+          <button type="submit" class="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-white/15 text-xs text-[#E6E4DD] hover:bg-white/10 transition">
+            <span>↪</span>
+            <span>Sign Out</span>
+          </button>
+        </form>
+      @else
+        <a href="#" class="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-white/15 text-xs text-[#E6E4DD] hover:bg-white/10 transition">
+          <span>↪</span>
+          <span>Sign Out</span>
+        </a>
+      @endif
     </div>
   </aside>
 
@@ -126,16 +136,27 @@
         $isFiltered = $filters['active'] ?? ($fromVal !== '' || $toVal !== '' || $searchVal !== '' || $roleVal !== 'all');
       @endphp
 
-      <!-- LIVE BROADCAST NOTICE BANNER (Hidden until triggered) -->
-      <div id="liveAlertBanner" class="hidden bg-[#14241E] text-white px-5 py-3.5 rounded-xl flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 text-xs">
-          <span class="px-2 py-0.5 rounded bg-white/15 font-bold uppercase tracking-wider text-[10px]">Broadcast</span>
-          <p id="liveAlertText" class="font-medium"></p>
+      <!-- LIVE BROADCAST NOTICE BANNER -->
+      @if(!empty($activeBroadcast))
+        <div id="liveAlertBanner" class="bg-[#14241E] text-white px-5 py-3.5 rounded-xl flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3 text-xs">
+            <span class="px-2 py-0.5 rounded bg-white/15 font-bold uppercase tracking-wider text-[10px]">Broadcast</span>
+            <div>
+              <p class="font-medium">{{ $activeBroadcast['message'] }}</p>
+              <p class="text-[10px] text-[#A3A89E] mt-0.5">
+                Sent by {{ $activeBroadcast['sender'] ?? 'Station' }} at {{ $activeBroadcast['sent_at'] ?? '' }}
+              </p>
+            </div>
+          </div>
+          <form method="POST" action="{{ route('dashboard.broadcast.dismiss') }}">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="text-xs text-[#C4C7BE] hover:text-white font-semibold">
+              Dismiss ✕
+            </button>
+          </form>
         </div>
-        <button type="button" onclick="dismissBroadcast()" class="text-xs text-[#C4C7BE] hover:text-white font-semibold">
-          Dismiss ✕
-        </button>
-      </div>
+      @endif
 
       <!-- OVERVIEW HEADER + DATE RANGE FILTER -->
       <div class="bg-white p-6 rounded-xl border border-[#E6E4DD] flex flex-wrap items-center justify-between gap-4">
@@ -462,19 +483,23 @@
 
   <!-- BROADCAST ALERT MODAL -->
   <div id="broadcastModal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl border border-[#E6E4DD] max-w-md w-full p-6 space-y-4">
+    <form method="POST" action="{{ route('dashboard.broadcast') }}" class="bg-white rounded-xl border border-[#E6E4DD] max-w-md w-full p-6 space-y-4">
+      @csrf
       <div class="flex items-center justify-between border-b border-[#E6E4DD] pb-3">
         <div>
           <h4 class="text-base font-bold text-[#1C1C1B]">Broadcast Clinic Alert</h4>
-          <p class="text-[11px] text-[#6E716A]">Post an operational notice across active stations</p>
+          <p class="text-[11px] text-[#6E716A]">Post a persistent operational notice across active stations</p>
         </div>
         <button type="button" onclick="closeBroadcastModal()" class="text-xs text-[#6E716A] hover:text-[#1C1C1B]">✕</button>
       </div>
       <div class="space-y-2 text-xs">
-        <label class="block font-semibold text-[#1C1C1B]">Alert Message</label>
+        <label for="broadcastInput" class="block font-semibold text-[#1C1C1B]">Alert Message</label>
         <textarea
           id="broadcastInput"
+          name="message"
           rows="3"
+          required
+          maxlength="280"
           placeholder="e.g. Outpatient Wing B intake queue running 10 minutes behind schedule."
           class="w-full p-2.5 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E]"
         ></textarea>
@@ -488,14 +513,13 @@
           Cancel
         </button>
         <button
-          type="button"
-          onclick="sendBroadcast()"
+          type="submit"
           class="px-4 py-2 rounded-lg bg-[#14241E] text-white font-semibold hover:bg-[#1E352C]"
         >
           Send Notice
         </button>
       </div>
-    </div>
+    </form>
   </div>
 
   <script>
@@ -506,21 +530,6 @@
 
     function closeBroadcastModal() {
       document.getElementById('broadcastModal').classList.add('hidden');
-    }
-
-    function sendBroadcast() {
-      const input = document.getElementById('broadcastInput');
-      const message = input.value.trim();
-      if (!message) return;
-
-      document.getElementById('liveAlertText').textContent = message;
-      document.getElementById('liveAlertBanner').classList.remove('hidden');
-      input.value = '';
-      closeBroadcastModal();
-    }
-
-    function dismissBroadcast() {
-      document.getElementById('liveAlertBanner').classList.add('hidden');
     }
   </script>
 
