@@ -19,6 +19,13 @@
     justify-content: center;
     z-index: 50;
   }
+  @keyframes highlightRow {
+    0% { background-color: #D4DDD0; }
+    100% { background-color: transparent; }
+  }
+  .row-highlight {
+    animation: highlightRow 2.5s ease-out;
+  }
 </style>
 @endsection
 
@@ -53,12 +60,21 @@
     </div>
   </div>
 
+  <!-- SERVER & CLIENT SUCCESS NOTICES -->
   @if(session('success'))
     <div class="bg-[#EEF2EC] text-[#14241E] border border-[#D4DDD0] px-5 py-3.5 rounded-xl text-xs font-semibold flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
       <span>{{ session('success') }}</span>
     </div>
   @endif
+
+  <div id="liveNoticeBanner" class="hidden bg-[#EEF2EC] text-[#14241E] border border-[#D4DDD0] px-5 py-3.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-4">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+      <span id="liveNoticeText"></span>
+    </div>
+    <button type="button" onclick="dismissLiveNotice()" class="text-xs text-[#6E716A] hover:text-[#1C1C1B]">✕</button>
+  </div>
 
   <!-- LIVE KPI OVERVIEW (5 COLUMNS) -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -113,7 +129,7 @@
     </div>
   </div>
 
-  <!-- FILTERS & STATUS TABS -->
+  <!-- FILTERS, STATUS TABS & INSTANT SEARCH BAR -->
   <div class="bg-[#F3F1EA] p-4 rounded-xl border border-[#E2DFD5] flex flex-wrap items-center justify-between gap-4">
     <!-- Status Filter Buttons -->
     <div class="flex flex-wrap items-center gap-1.5 text-xs">
@@ -167,8 +183,21 @@
       </button>
     </div>
 
-    <!-- Date & Doctor Filters -->
+    <!-- Instant Search Bar, Date & Doctor Select -->
     <div class="flex flex-wrap items-center gap-3 text-xs">
+      <!-- Instant Search Input -->
+      <div class="relative w-56">
+        <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6E716A] text-xs">🔍</span>
+        <input
+          type="text"
+          id="filter-search"
+          placeholder="Search patient, MRN, ticket, doc..."
+          oninput="applyClientSideFilters()"
+          class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E] text-xs"
+        >
+      </div>
+
+      <!-- Date Filter -->
       <div class="flex items-center gap-2">
         <label for="filter-date" class="font-semibold text-[#6E716A]">Date:</label>
         <input
@@ -180,6 +209,7 @@
         >
       </div>
 
+      <!-- Doctor Filter -->
       <div class="flex items-center gap-2">
         <label for="filter-doctor" class="font-semibold text-[#6E716A]">Doctor:</label>
         <select
@@ -216,7 +246,12 @@
         </thead>
         <tbody id="queue-table-body" class="divide-y divide-[#F0EFEA]">
           @forelse($appointments as $appt)
-            <tr id="appt-row-{{ $appt->id }}" data-status="{{ $appt->status }}" class="hover:bg-[#FAF9F5] transition">
+            <tr
+              id="appt-row-{{ $appt->id }}"
+              data-status="{{ $appt->status }}"
+              data-search="{{ strtolower(($appt->patient->user->full_name ?? '') . ' ' . ($appt->patient->mrn ?? '') . ' ' . $appt->queue_number . ' ' . ($appt->doctor->user->last_name ?? '') . ' ' . ($appt->doctor->department->name ?? '')) }}"
+              class="hover:bg-[#FAF9F5] transition"
+            >
               <td class="py-4 px-5">
                 <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#14241E] text-white font-mono font-bold text-xs">
                   #{{ sprintf('%02d', $appt->queue_number) }}
@@ -284,6 +319,13 @@
                     >
                       Call In
                     </button>
+                    <button
+                      type="button"
+                      onclick="openRescheduleModal({{ $appt->id }}, '{{ addslashes($appt->patient->user->full_name ?? '') }}', {{ $appt->doctor_id }}, '{{ \Carbon\Carbon::parse($appt->scheduled_at)->format('Y-m-d\TH:i') }}', {{ $appt->duration_minutes ?? 15 }})"
+                      class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#F3F1EA] text-[#1C1C1B] border border-[#D4DDD0] hover:bg-[#E6E4DD] transition"
+                    >
+                      Reschedule
+                    </button>
                   @endif
 
                   @if($appt->status === 'in_progress')
@@ -326,7 +368,10 @@
   <div id="bookingModal" class="modal-overlay">
     <div class="bg-white rounded-xl border border-[#E6E4DD] max-w-lg w-full p-6 shadow-xl mx-4 space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-[#F0EFEA]">
-        <h3 class="text-lg font-bold text-[#1C1C1B]">Book New Appointment</h3>
+        <div>
+          <h3 class="text-lg font-bold text-[#1C1C1B]">Book New Appointment</h3>
+          <p class="text-xs text-[#6E716A]">Schedule patient consultation with automatic queue ticket assignment.</p>
+        </div>
         <button type="button" class="text-lg text-[#6E716A] hover:text-[#1C1C1B]" onclick="closeModal('bookingModal')">&times;</button>
       </div>
 
@@ -357,7 +402,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">Date &amp; Time *</label>
-            <input type="datetime-local" name="scheduled_at" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" required>
+            <input type="datetime-local" name="scheduled_at" id="booking-scheduled-at" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" required>
           </div>
           <div>
             <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">Duration (mins)</label>
@@ -457,6 +502,58 @@
       </form>
     </div>
   </div>
+
+  <!-- MODAL 4: RESCHEDULE / REASSIGN APPOINTMENT -->
+  <div id="rescheduleModal" class="modal-overlay">
+    <div class="bg-white rounded-xl border border-[#E6E4DD] max-w-lg w-full p-6 shadow-xl mx-4 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-[#F0EFEA]">
+        <div>
+          <h3 class="text-lg font-bold text-[#1C1C1B]">Reschedule / Reassign Doctor</h3>
+          <p class="text-xs text-[#6E716A]">Update appointment time slot or assign to an alternate physician.</p>
+        </div>
+        <button type="button" class="text-lg text-[#6E716A] hover:text-[#1C1C1B]" onclick="closeModal('rescheduleModal')">&times;</button>
+      </div>
+
+      <form id="rescheduleForm" onsubmit="submitReschedule(event)" class="space-y-4">
+        <input type="hidden" id="reschedule-appt-id">
+        <div id="reschedule-error" class="hidden bg-[#F9EAEA] border border-[#EFC7C7] text-[#8B2626] p-3 rounded-lg text-xs font-semibold"></div>
+
+        <div class="p-3 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs">
+          <p class="font-bold text-[#1C1C1B]">Patient: <span id="reschedule-patient-name" class="font-semibold text-[#14241E]"></span></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">Attending Doctor *</label>
+          <select id="reschedule-doctor-id" name="doctor_id" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" required>
+            @foreach($doctors as $d)
+              <option value="{{ $d->id }}">Dr. {{ $d->user->full_name }} — {{ $d->department->name ?? 'General' }}</option>
+            @endforeach
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">New Date &amp; Time *</label>
+            <input type="datetime-local" id="reschedule-scheduled-at" name="scheduled_at" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">Duration (mins)</label>
+            <input type="number" id="reschedule-duration" name="duration_minutes" value="15" min="5" max="180" step="5" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">Reschedule Reason / Clinical Note</label>
+          <textarea id="reschedule-notes" name="notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" placeholder="e.g. Patient requested morning slot / doctor transferred case..."></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#F0EFEA]">
+          <button type="button" class="px-3.5 py-2 rounded-lg bg-white border border-[#E6E4DD] font-semibold text-xs text-[#1C1C1B] hover:bg-[#F9F8F4] transition" onclick="closeModal('rescheduleModal')">Cancel</button>
+          <button type="submit" id="btn-submit-reschedule" class="px-4 py-2 rounded-lg bg-[#14241E] text-white font-semibold text-xs hover:bg-[#1E352C] transition">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
 @endsection
 
 @section('scripts')
@@ -464,12 +561,45 @@
   const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   let currentFilterTab = 'all';
 
+  // Live Notification Helpers
+  function showLiveNotice(message) {
+    const banner = document.getElementById('liveNoticeBanner');
+    const textEl = document.getElementById('liveNoticeText');
+    if (banner && textEl) {
+      textEl.textContent = message;
+      banner.classList.remove('hidden');
+      setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 7000);
+    }
+  }
+
+  function dismissLiveNotice() {
+    const banner = document.getElementById('liveNoticeBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  // Open Booking Modal with Smart Date Default
   function openBookingModal() {
+    const boardDateVal = document.getElementById('filter-date').value || new Date().toISOString().slice(0, 10);
     const now = new Date();
-    now.setMinutes(now.getMinutes() + 15);
-    now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15);
-    const iso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    document.querySelector('#bookingForm input[name="scheduled_at"]').value = iso;
+    const todayStr = now.toISOString().slice(0, 10);
+
+    let defaultTime = "09:00";
+    if (boardDateVal === todayStr) {
+      now.setMinutes(now.getMinutes() + 15);
+      now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15);
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      defaultTime = `${hours}:${mins}`;
+    }
+
+    const defaultDateTime = `${boardDateVal}T${defaultTime}`;
+    const dateInput = document.getElementById('booking-scheduled-at');
+    if (dateInput) {
+      dateInput.value = defaultDateTime;
+    }
+
     document.getElementById('booking-error').classList.add('hidden');
     document.getElementById('bookingModal').style.display = 'flex';
   }
@@ -489,8 +619,22 @@
     document.getElementById('cancelModal').style.display = 'flex';
   }
 
+  function openRescheduleModal(id, patientName, doctorId, scheduledAt, duration) {
+    document.getElementById('reschedule-appt-id').value = id;
+    document.getElementById('reschedule-patient-name').textContent = patientName;
+    document.getElementById('reschedule-doctor-id').value = doctorId;
+    if (scheduledAt) {
+      document.getElementById('reschedule-scheduled-at').value = scheduledAt.slice(0, 16);
+    }
+    document.getElementById('reschedule-duration').value = duration || 15;
+    document.getElementById('reschedule-notes').value = '';
+    document.getElementById('reschedule-error').classList.add('hidden');
+    document.getElementById('rescheduleModal').style.display = 'flex';
+  }
+
   function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   }
 
   function toggleCancelOther(select) {
@@ -510,20 +654,49 @@
     });
     button.classList.add('bg-[#14241E]', 'text-white', 'shadow-sm', 'active');
     button.classList.remove('text-[#6E716A]', 'hover:bg-white/60');
-    applyClientSideTabFilter();
+    applyClientSideFilters();
   }
 
-  function applyClientSideTabFilter() {
+  // Combined Client-Side Tab & Instant Search Filter
+  function applyClientSideFilters() {
+    const query = (document.getElementById('filter-search')?.value || '').toLowerCase().trim();
     const rows = document.querySelectorAll('#queue-table-body tr');
+    let visibleCount = 0;
+
     rows.forEach(row => {
       if (row.id === 'empty-row') return;
       const rowStatus = row.getAttribute('data-status');
-      if (currentFilterTab === 'all' || rowStatus === currentFilterTab) {
+      const rowSearchText = (row.getAttribute('data-search') || row.textContent).toLowerCase();
+
+      const matchesTab = (currentFilterTab === 'all' || rowStatus === currentFilterTab);
+      const matchesSearch = (!query || rowSearchText.includes(query));
+
+      if (matchesTab && matchesSearch) {
         row.style.display = '';
+        visibleCount++;
       } else {
         row.style.display = 'none';
       }
     });
+
+    // Handle no matching rows search state
+    let searchEmptyRow = document.getElementById('search-empty-row');
+    if (visibleCount === 0 && rows.length > 0 && query) {
+      if (!searchEmptyRow) {
+        searchEmptyRow = document.createElement('tr');
+        searchEmptyRow.id = 'search-empty-row';
+        searchEmptyRow.innerHTML = `
+          <td colspan="8" class="text-center py-10 px-4 text-[#6E716A]">
+            <p class="font-semibold text-xs text-[#1C1C1B]">No appointments matching "${escapeHtml(query)}" in this filter.</p>
+            <p class="text-[11px] mt-1">Clear your search or switch to "All Visits".</p>
+          </td>
+        `;
+        document.getElementById('queue-table-body').appendChild(searchEmptyRow);
+      }
+      searchEmptyRow.style.display = '';
+    } else if (searchEmptyRow) {
+      searchEmptyRow.style.display = 'none';
+    }
   }
 
   async function updateStatus(appointmentId, action) {
@@ -539,6 +712,7 @@
 
       const result = await response.json();
       if (result.success) {
+        showLiveNotice(`✓ Status updated: ${result.message || 'Action saved'}`);
         await fetchLiveQueue();
       } else {
         alert(result.message || 'Error updating status');
@@ -549,6 +723,7 @@
     }
   }
 
+  // Submit Booking & Auto-Navigate to the Booked Date
   async function submitBooking(event) {
     event.preventDefault();
     const form = event.target;
@@ -560,6 +735,8 @@
     errorBox.classList.add('hidden');
 
     const formData = new FormData(form);
+    const scheduledAtVal = formData.get('scheduled_at');
+    const bookedDate = scheduledAtVal ? scheduledAtVal.split('T')[0] : null;
 
     try {
       const response = await fetch('/appointments', {
@@ -576,7 +753,22 @@
       if (response.ok && data.success) {
         closeModal('bookingModal');
         form.reset();
-        await fetchLiveQueue();
+
+        // Auto-switch board date to the date of the new booking!
+        if (bookedDate) {
+          document.getElementById('filter-date').value = bookedDate;
+        }
+
+        // Reset filter tab to 'all' and clear search so new row is visible
+        setFilterTabToAll();
+        const searchInput = document.getElementById('filter-search');
+        if (searchInput) searchInput.value = '';
+
+        await fetchLiveQueue(data.appointment?.id);
+
+        const patName = data.appointment?.patient?.user?.full_name || 'Patient';
+        const qNum = data.appointment?.queue_number || '1';
+        showLiveNotice(`✓ Ticket #${qNum} booked successfully for ${patName} on ${bookedDate}!`);
       } else {
         const msg = data.message || Object.values(data.errors || {}).flat().join(', ') || 'Booking failed';
         errorBox.textContent = msg;
@@ -592,6 +784,65 @@
     }
   }
 
+  // Submit Reschedule & Reassign Doctor
+  async function submitReschedule(event) {
+    event.preventDefault();
+    const id = document.getElementById('reschedule-appt-id').value;
+    const doctorId = document.getElementById('reschedule-doctor-id').value;
+    const scheduledAt = document.getElementById('reschedule-scheduled-at').value;
+    const durationMinutes = document.getElementById('reschedule-duration').value;
+    const notes = document.getElementById('reschedule-notes').value;
+    const errorBox = document.getElementById('reschedule-error');
+    const submitBtn = document.getElementById('btn-submit-reschedule');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+    errorBox.classList.add('hidden');
+
+    const newDate = scheduledAt ? scheduledAt.split('T')[0] : null;
+
+    try {
+      const response = await fetch(`/appointments/${id}/reschedule`, {
+        method: 'PATCH',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          doctor_id: doctorId,
+          scheduled_at: scheduledAt,
+          duration_minutes: durationMinutes,
+          notes: notes
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        closeModal('rescheduleModal');
+        if (newDate) {
+          document.getElementById('filter-date').value = newDate;
+        }
+        setFilterTabToAll();
+        await fetchLiveQueue(id);
+        showLiveNotice(`✓ ${data.message || 'Appointment rescheduled successfully.'}`);
+      } else {
+        const msg = data.message || Object.values(data.errors || {}).flat().join(', ') || 'Rescheduling failed';
+        errorBox.textContent = msg;
+        errorBox.classList.remove('hidden');
+      }
+    } catch (err) {
+      console.error(err);
+      errorBox.textContent = 'Server communication error.';
+      errorBox.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Changes';
+    }
+  }
+
+  // Submit Complete Consultation
   async function submitComplete(event) {
     event.preventDefault();
     const id = document.getElementById('complete-appt-id').value;
@@ -612,6 +863,7 @@
       const result = await response.json();
       if (result.success) {
         closeModal('completeModal');
+        showLiveNotice('✓ Consultation completed and recorded in registry.');
         await fetchLiveQueue();
       } else {
         alert(result.message || 'Error completing consultation.');
@@ -622,6 +874,7 @@
     }
   }
 
+  // Submit Cancellation
   async function submitCancel(event) {
     event.preventDefault();
     const id = document.getElementById('cancel-appt-id').value;
@@ -644,6 +897,7 @@
       const result = await response.json();
       if (result.success) {
         closeModal('cancelModal');
+        showLiveNotice('✓ Appointment cancelled and slot released safely.');
         await fetchLiveQueue();
       } else {
         alert(result.message || 'Error cancelling appointment.');
@@ -654,11 +908,23 @@
     }
   }
 
+  function setFilterTabToAll() {
+    currentFilterTab = 'all';
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('bg-[#14241E]', 'text-white', 'shadow-sm', 'active');
+      b.classList.add('text-[#6E716A]', 'hover:bg-white/60');
+      if (b.getAttribute('data-filter') === 'all') {
+        b.classList.add('bg-[#14241E]', 'text-white', 'shadow-sm', 'active');
+        b.classList.remove('text-[#6E716A]', 'hover:bg-white/60');
+      }
+    });
+  }
+
   function applyFilters() {
     fetchLiveQueue();
   }
 
-  async function fetchLiveQueue() {
+  async function fetchLiveQueue(highlightApptId = null) {
     const date = document.getElementById('filter-date').value;
     const doctorId = document.getElementById('filter-doctor').value;
 
@@ -683,13 +949,13 @@
         document.getElementById('kpi-cancelled').textContent = data.kpis.cancelled;
       }
 
-      renderQueueRows(data.appointments);
+      renderQueueRows(data.appointments, highlightApptId);
     } catch (e) {
       console.warn('Queue auto-sync paused.');
     }
   }
 
-  function renderQueueRows(appts) {
+  function renderQueueRows(appts, highlightApptId = null) {
     const tbody = document.getElementById('queue-table-body');
 
     if (!appts || appts.length === 0) {
@@ -718,6 +984,7 @@
       }
       if (a.status === 'scheduled' || a.status === 'waiting') {
         actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#14241E] text-white hover:bg-[#1E352C] transition" onclick="updateStatus(${a.id}, 'start')">Call In</button>`;
+        actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#F3F1EA] text-[#1C1C1B] border border-[#D4DDD0] hover:bg-[#E6E4DD] transition" onclick="openRescheduleModal(${a.id}, '${escapeHtml(a.patient_name)}', ${a.doctor_id}, '${a.scheduled_datetime}', ${a.duration_minutes || 15})">Reschedule</button>`;
       }
       if (a.status === 'in_progress') {
         actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition" onclick="openCompleteModal(${a.id}, '${escapeHtml(a.patient_name)}')">Complete</button>`;
@@ -735,8 +1002,18 @@
         badgeClasses = 'bg-[#FDF6B2] text-[#723B13] border-[#FCE96A]';
       }
 
+      const isHighlighted = highlightApptId && String(highlightApptId) === String(a.id);
+      const highlightClass = isHighlighted ? 'row-highlight' : '';
+
+      const searchTerms = `${a.patient_name} ${a.mrn} ${a.queue_number} ${a.doctor_name} ${a.department} ${a.type}`.toLowerCase();
+
       html += `
-        <tr id="appt-row-${a.id}" data-status="${a.status}" class="hover:bg-[#FAF9F5] transition">
+        <tr
+          id="appt-row-${a.id}"
+          data-status="${a.status}"
+          data-search="${escapeHtml(searchTerms)}"
+          class="hover:bg-[#FAF9F5] transition ${highlightClass}"
+        >
           <td class="py-4 px-5">
             <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#14241E] text-white font-mono font-bold text-xs">
               #${a.queue_number}
@@ -758,7 +1035,7 @@
             <p class="text-[11px] text-[#6E716A]">${a.duration_minutes} mins</p>
           </td>
           <td class="py-4 px-5">
-            <p class="font-bold text-[#1C1C1B]">Dr. ${escapeHtml(a.doctor_name)}</p>
+            <p class="font-bold text-[#1C1C1B]">${escapeHtml(a.doctor_name)}</p>
             <p class="text-[11px] text-[#6E716A]">${escapeHtml(a.department)}</p>
           </td>
           <td class="py-4 px-5">
@@ -775,7 +1052,7 @@
     });
 
     tbody.innerHTML = html;
-    applyClientSideTabFilter();
+    applyClientSideFilters();
   }
 
   function escapeHtml(str) {
@@ -783,6 +1060,12 @@
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
-  setInterval(fetchLiveQueue, 6000);
+  setInterval(() => {
+    // Only auto-sync if not typing in search
+    const searchVal = document.getElementById('filter-search')?.value;
+    if (!searchVal) {
+      fetchLiveQueue();
+    }
+  }, 6000);
 </script>
 @endsection

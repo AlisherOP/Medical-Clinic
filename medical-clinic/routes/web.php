@@ -18,6 +18,7 @@ Route::prefix('appointments')->name('appointments.')->group(function () {
     Route::patch('/{appointment}/start', [AppointmentController::class, 'start'])->name('start');
     Route::patch('/{appointment}/complete', [AppointmentController::class, 'complete'])->name('complete');
     Route::patch('/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('cancel');
+    Route::patch('/{appointment}/reschedule', [AppointmentController::class, 'reschedule'])->name('reschedule');
 });
 
 Route::prefix('operations')->name('operations.')->group(function () {
