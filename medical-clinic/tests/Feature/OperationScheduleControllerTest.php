@@ -49,6 +49,7 @@ class OperationScheduleControllerTest extends TestCase
                 'type' => 'operation',
                 'scheduled_at' => (clone $today)->setHour(8)->setMinute(0)->setSecond(0),
                 'duration_minutes' => 90,
+                'queue_number' => 1,
                 'status' => 'completed',
                 'diagnosis' => 'Emergency Appendicitis',
                 'notes' => 'Emergency appendectomy completed successfully.',
@@ -62,6 +63,7 @@ class OperationScheduleControllerTest extends TestCase
                 'type' => 'operation',
                 'scheduled_at' => (clone $today)->setHour(10)->setMinute(0)->setSecond(0),
                 'duration_minutes' => 60,
+                'queue_number' => 2,
                 'status' => 'in_progress',
                 'notes' => 'Cholecystectomy elective',
             ]);
@@ -74,6 +76,7 @@ class OperationScheduleControllerTest extends TestCase
                 'type' => 'operation',
                 'scheduled_at' => (clone $today)->setHour(13)->setMinute(0)->setSecond(0),
                 'duration_minutes' => 30,
+                'queue_number' => 3,
                 'status' => 'scheduled',
             ]);
 
@@ -85,6 +88,7 @@ class OperationScheduleControllerTest extends TestCase
                 'type' => 'operation',
                 'scheduled_at' => (clone $today)->setHour(15)->setMinute(0)->setSecond(0),
                 'duration_minutes' => 45,
+                'queue_number' => 4,
                 'status' => 'cancelled',
                 'notes' => 'Cancellation reason: Patient blood pressure spike.',
             ]);
