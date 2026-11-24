@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 Route::get('/dashboard', [DashboardController::class, 'index']);
 Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
+Route::post('/dashboard/broadcast', [DashboardController::class, 'broadcast'])->name('dashboard.broadcast');
+Route::delete('/dashboard/broadcast', [DashboardController::class, 'dismissBroadcast'])->name('dashboard.broadcast.dismiss');
 
 Route::prefix('appointments')->name('appointments.')->group(function () {
     Route::get('/', [AppointmentController::class, 'index'])->name('index');
