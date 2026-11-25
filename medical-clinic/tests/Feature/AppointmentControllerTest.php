@@ -65,6 +65,8 @@ class AppointmentControllerTest extends TestCase
                     'scheduled_time',
                     'doctor_name',
                     'department',
+                    'consultation_room',
+                    'wait_text',
                     'status',
                 ],
             ],

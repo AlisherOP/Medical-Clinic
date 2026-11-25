@@ -46,4 +46,12 @@ class Doctor extends Model
     {
         return $this->hasMany(DoctorSchedule::class);
     }
+
+    public function getConsultationRoomAttribute(): string
+    {
+        $floor = (($this->department_id ?? 1) % 4) + 1;
+        $room = 100 * $floor + ($this->id % 20) + 1;
+
+        return "Suite {$room}";
+    }
 }

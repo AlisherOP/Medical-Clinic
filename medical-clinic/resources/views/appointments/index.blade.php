@@ -26,6 +26,30 @@
   .row-highlight {
     animation: highlightRow 2.5s ease-out;
   }
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    #printableTicketSlip, #printableTicketSlip * {
+      visibility: visible;
+    }
+    #printableTicketSlip {
+      position: absolute;
+      left: 50%;
+      top: 20px;
+      transform: translateX(-50%);
+      width: 80mm !important;
+      margin: 0 auto;
+      padding: 12px;
+      background: white !important;
+      color: black !important;
+      box-shadow: none !important;
+      border: 1px dashed #999 !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+  }
 </style>
 @endsection
 
@@ -41,6 +65,29 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-2 text-xs">
+      <!-- Audio Chime Toggle -->
+      <button
+        type="button"
+        id="btn-toggle-chime"
+        onclick="toggleChimeAudio()"
+        class="px-3.5 py-2 rounded-lg bg-white border border-[#E6E4DD] font-semibold text-[#1C1C1B] hover:bg-[#F9F8F4] transition flex items-center gap-1.5"
+        title="Toggle Calling Chime Sound"
+      >
+        <span id="chimeIcon">🔊</span>
+        <span id="chimeStatusText">Chime: On</span>
+      </button>
+
+      <!-- Lobby Display TV Mode Button -->
+      <button
+        type="button"
+        onclick="openLobbyDisplay()"
+        class="px-3.5 py-2 rounded-lg bg-[#F3F1EA] border border-[#E2DFD5] font-semibold text-[#14241E] hover:bg-[#EAE6DC] transition flex items-center gap-1.5"
+      >
+        <span>📺</span>
+        <span>Lobby TV Display</span>
+      </button>
+
+      <!-- Refresh Now -->
       <button
         type="button"
         onclick="fetchLiveQueue()"
@@ -49,6 +96,8 @@
         <span>🔄</span>
         <span>Refresh Now</span>
       </button>
+
+      <!-- Book Appointment -->
       <button
         type="button"
         onclick="openBookingModal()"
@@ -57,6 +106,28 @@
         <span>+</span>
         <span>Book Appointment</span>
       </button>
+    </div>
+  </div>
+
+  <!-- NOW CALLING AUDIO/VISUAL BROADCAST BANNER -->
+  <div id="callingAlertBanner" class="hidden bg-[#14241E] text-white px-5 py-3.5 rounded-xl border border-white/10 flex items-center justify-between gap-4 shadow-lg transition-all">
+    <div class="flex items-center gap-3.5">
+      <div class="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-base animate-pulse">
+        🔔
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-[#14241E]">Now Calling</span>
+          <span id="callingTicketNum" class="text-sm font-mono font-bold text-white"></span>
+          <span class="text-xs text-[#A3A89E]">•</span>
+          <span id="callingRoomText" class="text-xs font-semibold text-emerald-300"></span>
+        </div>
+        <p id="callingPatientText" class="text-xs font-medium text-[#E6E4DD] mt-0.5"></p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="button" onclick="playCallingChime()" class="text-xs text-[#A3A89E] hover:text-white" title="Replay Chime">Replay 🔔</button>
+      <button type="button" onclick="dismissCallingNotice()" class="text-xs text-[#A3A89E] hover:text-white font-semibold">✕</button>
     </div>
   </div>
 
@@ -237,8 +308,8 @@
             <th class="py-3.5 px-5 w-20">Ticket #</th>
             <th class="py-3.5 px-5">Patient Name</th>
             <th class="py-3.5 px-5">MR Number</th>
-            <th class="py-3.5 px-5">Schedule Time</th>
-            <th class="py-3.5 px-5">Doctor &amp; Dept</th>
+            <th class="py-3.5 px-5">Schedule &amp; Wait</th>
+            <th class="py-3.5 px-5">Doctor &amp; Station</th>
             <th class="py-3.5 px-5">Status</th>
             <th class="py-3.5 px-5">Cancellation Reason</th>
             <th class="py-3.5 px-5 text-right">Live Actions</th>
@@ -246,14 +317,18 @@
         </thead>
         <tbody id="queue-table-body" class="divide-y divide-[#F0EFEA]">
           @forelse($appointments as $appt)
+            @php
+              $telemetry = $appt->telemetry ?? ['wait_text' => 'Scheduled', 'patients_ahead' => null];
+              $roomName = $appt->doctor?->consultation_room ?? 'Suite 101';
+            @endphp
             <tr
               id="appt-row-{{ $appt->id }}"
               data-status="{{ $appt->status }}"
-              data-search="{{ strtolower(($appt->patient->user->full_name ?? '') . ' ' . ($appt->patient->mrn ?? '') . ' ' . $appt->queue_number . ' ' . ($appt->doctor->user->last_name ?? '') . ' ' . ($appt->doctor->department->name ?? '')) }}"
+              data-search="{{ strtolower(($appt->patient->user->full_name ?? '') . ' ' . ($appt->patient->mrn ?? '') . ' ' . $appt->queue_number . ' ' . ($appt->doctor->user->last_name ?? '') . ' ' . ($appt->doctor->department->name ?? '') . ' ' . $roomName) }}"
               class="hover:bg-[#FAF9F5] transition"
             >
               <td class="py-4 px-5">
-                <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#14241E] text-white font-mono font-bold text-xs">
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#14241E] text-white font-mono font-bold text-xs shadow-sm">
                   #{{ sprintf('%02d', $appt->queue_number) }}
                 </span>
               </td>
@@ -270,11 +345,27 @@
               </td>
               <td class="py-4 px-5">
                 <p class="font-bold text-[#1C1C1B]">{{ \Carbon\Carbon::parse($appt->scheduled_at)->format('H:i') }}</p>
-                <p class="text-[11px] text-[#6E716A]">{{ $appt->duration_minutes ?? 15 }} mins</p>
+                <div class="mt-0.5">
+                  @if($appt->status === 'waiting')
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FDF6B2] text-[#723B13] text-[10px] font-semibold">
+                      ⏱️ {{ $telemetry['wait_text'] }}
+                    </span>
+                  @elseif($appt->status === 'in_progress')
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#EEF2EC] text-[#14241E] text-[10px] font-semibold">
+                      🟢 Calling / In OR
+                    </span>
+                  @else
+                    <span class="text-[11px] text-[#6E716A]">{{ $appt->duration_minutes ?? 15 }} mins</span>
+                  @endif
+                </div>
               </td>
               <td class="py-4 px-5">
                 <p class="font-bold text-[#1C1C1B]">Dr. {{ $appt->doctor->user->last_name ?? 'Doctor' }}</p>
-                <p class="text-[11px] text-[#6E716A]">{{ $appt->doctor->department->name ?? 'General Medicine' }}</p>
+                <div class="flex items-center gap-1.5 text-[11px] text-[#6E716A] mt-0.5">
+                  <span>{{ $appt->doctor->department->name ?? 'General Medicine' }}</span>
+                  <span>•</span>
+                  <span class="font-semibold text-[#14241E] bg-[#EEF2EC] px-1.5 py-0.2 rounded text-[10px] border border-[#D4DDD0]">{{ $roomName }}</span>
+                </div>
               </td>
               <td class="py-4 px-5">
                 @php
@@ -301,6 +392,17 @@
               </td>
               <td class="py-4 px-5 text-right">
                 <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                  <!-- Printable Ticket Slip Action -->
+                  <button
+                    type="button"
+                    onclick="openTicketSlip({{ $appt->id }}, '{{ sprintf('%02d', $appt->queue_number) }}', '{{ addslashes($appt->patient->user->full_name ?? 'Unknown') }}', '{{ $appt->patient->mrn ?? 'N/A' }}', '{{ \Carbon\Carbon::parse($appt->scheduled_at)->format('Y-m-d H:i') }}', 'Dr. {{ addslashes($appt->doctor->user->last_name ?? 'Doctor') }}', '{{ addslashes($appt->doctor->department->name ?? 'General') }}', '{{ $roomName }}', '{{ $telemetry['wait_text'] }}', '{{ ucfirst($appt->type) }}')"
+                    class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white text-[#1C1C1B] border border-[#E6E4DD] hover:bg-[#F9F8F4] transition flex items-center gap-1"
+                    title="Print Intake Queue Ticket"
+                  >
+                    <span>🖨️</span>
+                    <span>Ticket</span>
+                  </button>
+
                   @if($appt->status === 'scheduled')
                     <button
                       type="button"
@@ -312,12 +414,14 @@
                   @endif
 
                   @if(in_array($appt->status, ['scheduled', 'waiting']))
+                    <!-- Call In with Calling Sound & Banner -->
                     <button
                       type="button"
-                      onclick="updateStatus({{ $appt->id }}, 'start')"
-                      class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#14241E] text-white hover:bg-[#1E352C] transition"
+                      onclick="callPatientIn({{ $appt->id }}, '{{ sprintf('%02d', $appt->queue_number) }}', '{{ addslashes($appt->patient->user->full_name ?? 'Patient') }}', 'Dr. {{ addslashes($appt->doctor->user->last_name ?? 'Doctor') }}', '{{ $roomName }}')"
+                      class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#14241E] text-white hover:bg-[#1E352C] transition flex items-center gap-1"
                     >
-                      Call In
+                      <span>🔔</span>
+                      <span>Call In</span>
                     </button>
                     <button
                       type="button"
@@ -394,7 +498,7 @@
           <select name="doctor_id" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" required>
             <option value="">Select Doctor</option>
             @foreach($doctors as $d)
-              <option value="{{ $d->id }}">Dr. {{ $d->user->full_name }} — {{ $d->department->name ?? 'General' }}</option>
+              <option value="{{ $d->id }}">Dr. {{ $d->user->full_name }} — {{ $d->department->name ?? 'General' }} ({{ $d->consultation_room }})</option>
             @endforeach
           </select>
         </div>
@@ -526,7 +630,7 @@
           <label class="block text-xs font-semibold text-[#1C1C1B] mb-1">Attending Doctor *</label>
           <select id="reschedule-doctor-id" name="doctor_id" class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]" required>
             @foreach($doctors as $d)
-              <option value="{{ $d->id }}">Dr. {{ $d->user->full_name }} — {{ $d->department->name ?? 'General' }}</option>
+              <option value="{{ $d->id }}">Dr. {{ $d->user->full_name }} — {{ $d->department->name ?? 'General' }} ({{ $d->consultation_room }})</option>
             @endforeach
           </select>
         </div>
@@ -554,12 +658,284 @@
       </form>
     </div>
   </div>
+
+  <!-- MODAL 5: PRINTABLE INTAKE QUEUE TICKET SLIP -->
+  <div id="ticketModal" class="modal-overlay">
+    <div class="bg-white rounded-xl border border-[#E6E4DD] max-w-sm w-full p-6 shadow-2xl mx-4 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-[#F0EFEA] no-print">
+        <div>
+          <h3 class="text-base font-bold text-[#1C1C1B]">Clinic Queue Ticket</h3>
+          <p class="text-[11px] text-[#6E716A]">Intake slip for waiting room and patient verification</p>
+        </div>
+        <button type="button" class="text-lg text-[#6E716A] hover:text-[#1C1C1B]" onclick="closeModal('ticketModal')">&times;</button>
+      </div>
+
+      <!-- THERMAL TICKET SLIP BODY -->
+      <div id="printableTicketSlip" class="bg-white p-5 rounded-lg border-2 border-dashed border-[#D4DDD0] font-sans text-center space-y-3.5">
+        <!-- Clinic Branding Header -->
+        <div class="border-b border-black/15 pb-2.5">
+          <p class="text-[10px] font-bold tracking-widest uppercase text-gray-500">QMS Clinical Health System</p>
+          <h4 class="text-sm font-bold uppercase tracking-wider text-black">Outpatient Consultation Ticket</h4>
+          <p class="text-[10px] text-gray-600">Central Ambulatory Registry</p>
+        </div>
+
+        <!-- Huge Ticket Number -->
+        <div class="py-1">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500">Your Queue Number</p>
+          <div id="ticket-number" class="text-5xl font-mono font-extrabold text-[#14241E] tracking-tight my-0.5">#01</div>
+          <span id="ticket-type" class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[#F3F1EA] text-[#14241E] border border-[#E2DFD5]">Consultation</span>
+        </div>
+
+        <!-- Patient & Doctor Information -->
+        <div class="text-left text-xs bg-[#F9F8F4] p-3 rounded-lg border border-[#E6E4DD] space-y-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500 text-[11px]">Patient:</span>
+            <span id="ticket-patient" class="font-bold text-black text-right"></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500 text-[11px]">MRN:</span>
+            <span id="ticket-mrn" class="font-mono font-semibold text-black"></span>
+          </div>
+          <div class="flex justify-between items-center border-t border-gray-200 pt-1.5">
+            <span class="text-gray-500 text-[11px]">Doctor:</span>
+            <span id="ticket-doctor" class="font-bold text-black text-right"></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500 text-[11px]">Station / Room:</span>
+            <span id="ticket-room" class="font-bold text-[#14241E] bg-[#EEF2EC] px-1.5 py-0.2 rounded border border-[#D4DDD0]"></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-500 text-[11px]">Scheduled At:</span>
+            <span id="ticket-time" class="font-semibold text-black"></span>
+          </div>
+          <div class="flex justify-between items-center border-t border-gray-200 pt-1.5">
+            <span class="text-gray-500 text-[11px]">Queue Position:</span>
+            <span id="ticket-wait" class="font-bold text-emerald-800"></span>
+          </div>
+        </div>
+
+        <!-- Simulated Barcode Graphic -->
+        <div class="pt-1">
+          <div class="font-mono text-[10px] tracking-widest text-gray-400 select-none">
+            ||| | |||| | ||||| || |||| ||| ||| | |||
+          </div>
+          <p class="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Please wait in the main lobby. Your number will chime overhead.</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#F0EFEA] no-print">
+        <button type="button" class="px-3.5 py-2 rounded-lg bg-white border border-[#E6E4DD] font-semibold text-xs text-[#1C1C1B] hover:bg-[#F9F8F4] transition" onclick="closeModal('ticketModal')">Close</button>
+        <button type="button" onclick="window.print()" class="px-4 py-2 rounded-lg bg-[#14241E] text-white font-semibold text-xs hover:bg-[#1E352C] transition flex items-center gap-1.5">
+          <span>🖨️</span>
+          <span>Print Slip</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: LOBBY TV DISPLAY (FULLSCREEN WAITING ROOM MONITOR) -->
+  <div id="lobbyDisplayModal" class="fixed inset-0 z-50 bg-[#14241E] text-white hidden flex-col">
+    <!-- Lobby Top Bar -->
+    <header class="h-16 px-8 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0F1C17]">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-lg bg-white text-[#14241E] flex items-center justify-center font-serif-display font-bold text-2xl">
+          Q
+        </div>
+        <div>
+          <h1 class="text-base font-bold uppercase tracking-wider text-white">QMS Clinical — Waiting Lobby Monitor</h1>
+          <p class="text-xs text-[#A3A89E]">Outpatient Clinic Queue &amp; Doctor Room Telemetry</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <div class="text-right">
+          <p id="lobbyLiveClock" class="font-mono font-bold text-xl text-emerald-400">00:00:00</p>
+          <p class="text-[10px] uppercase tracking-wider text-[#A3A89E]">{{ \Carbon\Carbon::parse($selectedDate)->format('l, F j, Y') }}</p>
+        </div>
+        <button type="button" onclick="closeLobbyDisplay()" class="px-4 py-2 rounded-lg border border-white/20 text-xs font-semibold text-[#E6E4DD] hover:bg-white/10 transition">
+          Exit Display ✕
+        </button>
+      </div>
+    </header>
+
+    <!-- Lobby Split View -->
+    <div class="flex-1 p-8 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto">
+      <!-- Left: Now Calling / Active in Consultations -->
+      <div class="bg-[#182C24] p-6 rounded-2xl border border-white/10 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+              <h2 class="text-lg font-bold tracking-wider uppercase text-emerald-400">Now Calling / In Consultation</h2>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Active</span>
+          </div>
+
+          <div id="lobby-active-list" class="space-y-4">
+            <!-- Dynamic active calling cards -->
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-[#A3A89E] flex items-center justify-between">
+          <span>🔊 Audio chime sounds automatically upon ticket call</span>
+          <span class="text-emerald-400 font-mono">Live Sync</span>
+        </div>
+      </div>
+
+      <!-- Right: Next In Line (Waiting Queue) -->
+      <div class="bg-[#182C24] p-6 rounded-2xl border border-white/10 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+              <h2 class="text-lg font-bold tracking-wider uppercase text-white">Next In Line (Waiting Lobby)</h2>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Waiting</span>
+          </div>
+
+          <div id="lobby-waiting-list" class="space-y-3">
+            <!-- Dynamic waiting cards -->
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-[#A3A89E] text-center">
+          Please proceed to your assigned Consultation Suite when your ticket number is called.
+        </div>
+      </div>
+    </div>
+  </div>
 @endsection
 
 @section('scripts')
 <script>
   const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   let currentFilterTab = 'all';
+  let chimeAudioEnabled = true;
+
+  // Initialize Audio Chime Settings from localStorage
+  if (localStorage.getItem('qms_chime_enabled') === '0') {
+    chimeAudioEnabled = false;
+    updateChimeUI();
+  }
+
+  function toggleChimeAudio() {
+    chimeAudioEnabled = !chimeAudioEnabled;
+    localStorage.setItem('qms_chime_enabled', chimeAudioEnabled ? '1' : '0');
+    updateChimeUI();
+    if (chimeAudioEnabled) {
+      playCallingChime();
+    }
+  }
+
+  function updateChimeUI() {
+    const icon = document.getElementById('chimeIcon');
+    const text = document.getElementById('chimeStatusText');
+    if (icon && text) {
+      icon.textContent = chimeAudioEnabled ? '🔊' : '🔇';
+      text.textContent = chimeAudioEnabled ? 'Chime: On' : 'Chime: Off';
+    }
+  }
+
+  // Web Audio Hospital Calling Chime (Pure Audio Oscillator - No network audio file needed!)
+  function playCallingChime() {
+    if (!chimeAudioEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      // Authentic two-tone hospital ding-dong (C5: 523Hz -> G5: 784Hz)
+      const tones = [
+        { freq: 523.25, time: 0, duration: 0.4 },
+        { freq: 783.99, time: 0.28, duration: 0.7 }
+      ];
+
+      tones.forEach(tone => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(tone.freq, now + tone.time);
+        gain.gain.setValueAtTime(0.18, now + tone.time);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + tone.time + tone.duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + tone.time);
+        osc.stop(now + tone.time + tone.duration);
+      });
+    } catch (err) {
+      console.warn('Audio chime blocked or unsupported.');
+    }
+  }
+
+  // Call In Action: Update Status + Play Chime + Show Overhead Calling Banner
+  async function callPatientIn(id, ticketNum, patientName, doctorName, roomName) {
+    try {
+      playCallingChime();
+
+      // Show Calling Banner
+      const banner = document.getElementById('callingAlertBanner');
+      document.getElementById('callingTicketNum').textContent = `#${ticketNum}`;
+      document.getElementById('callingRoomText').textContent = roomName;
+      document.getElementById('callingPatientText').textContent = `${patientName} — Please proceed to ${roomName} with ${doctorName}`;
+      if (banner) banner.classList.remove('hidden');
+
+      // Update backend status to start consultation
+      await updateStatus(id, 'start');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function dismissCallingNotice() {
+    const banner = document.getElementById('callingAlertBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  // Open Ticket Slip Modal
+  function openTicketSlip(id, queueNumber, patientName, mrn, scheduledAt, doctorName, dept, roomName, waitText, type) {
+    document.getElementById('ticket-number').textContent = `#${queueNumber}`;
+    document.getElementById('ticket-patient').textContent = patientName;
+    document.getElementById('ticket-mrn').textContent = mrn;
+    document.getElementById('ticket-time').textContent = scheduledAt;
+    document.getElementById('ticket-doctor').textContent = `${doctorName} (${dept})`;
+    document.getElementById('ticket-room').textContent = roomName;
+    document.getElementById('ticket-wait').textContent = waitText || 'Scheduled';
+    document.getElementById('ticket-type').textContent = type || 'Consultation';
+    document.getElementById('ticketModal').style.display = 'flex';
+  }
+
+  // Lobby TV Display Modal Controls
+  let clockInterval = null;
+  function openLobbyDisplay() {
+    const modal = document.getElementById('lobbyDisplayModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    updateLobbyClock();
+    if (!clockInterval) {
+      clockInterval = setInterval(updateLobbyClock, 1000);
+    }
+    fetchLiveQueue();
+  }
+
+  function closeLobbyDisplay() {
+    const modal = document.getElementById('lobbyDisplayModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    if (clockInterval) {
+      clearInterval(clockInterval);
+      clockInterval = null;
+    }
+  }
+
+  function updateLobbyClock() {
+    const el = document.getElementById('lobbyLiveClock');
+    if (el) {
+      const now = new Date();
+      el.textContent = now.toTimeString().slice(0, 8);
+    }
+  }
 
   // Live Notification Helpers
   function showLiveNotice(message) {
@@ -664,7 +1040,7 @@
     let visibleCount = 0;
 
     rows.forEach(row => {
-      if (row.id === 'empty-row') return;
+      if (row.id === 'empty-row' || row.id === 'search-empty-row') return;
       const rowStatus = row.getAttribute('data-status');
       const rowSearchText = (row.getAttribute('data-search') || row.textContent).toLowerCase();
 
@@ -679,7 +1055,6 @@
       }
     });
 
-    // Handle no matching rows search state
     let searchEmptyRow = document.getElementById('search-empty-row');
     if (visibleCount === 0 && rows.length > 0 && query) {
       if (!searchEmptyRow) {
@@ -754,12 +1129,10 @@
         closeModal('bookingModal');
         form.reset();
 
-        // Auto-switch board date to the date of the new booking!
         if (bookedDate) {
           document.getElementById('filter-date').value = bookedDate;
         }
 
-        // Reset filter tab to 'all' and clear search so new row is visible
         setFilterTabToAll();
         const searchInput = document.getElementById('filter-search');
         if (searchInput) searchInput.value = '';
@@ -950,6 +1323,7 @@
       }
 
       renderQueueRows(data.appointments, highlightApptId);
+      updateLobbyDisplayPanels(data.appointments);
     } catch (e) {
       console.warn('Queue auto-sync paused.');
     }
@@ -978,12 +1352,26 @@
         reasonHtml = `<div class="text-[11px] text-[#8B2626] bg-[#F9EAEA] px-2.5 py-1 rounded border border-[#EFC7C7] max-w-xs">${escapeHtml(a.cancellation_reason)}</div>`;
       }
 
-      let actionsHtml = '';
+      const roomName = a.consultation_room || 'Suite 101';
+      const waitTelemetry = a.wait_text || 'Scheduled';
+
+      let actionsHtml = `
+        <button
+          type="button"
+          onclick="openTicketSlip(${a.id}, '${a.queue_number}', '${escapeHtml(a.patient_name)}', '${escapeHtml(a.mrn)}', '${a.scheduled_date} ${a.scheduled_time}', '${escapeHtml(a.doctor_name)}', '${escapeHtml(a.department)}', '${escapeHtml(roomName)}', '${escapeHtml(waitTelemetry)}', '${escapeHtml(a.type)}')"
+          class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white text-[#1C1C1B] border border-[#E6E4DD] hover:bg-[#F9F8F4] transition flex items-center gap-1"
+          title="Print Intake Queue Ticket"
+        >
+          <span>🖨️</span>
+          <span>Ticket</span>
+        </button>
+      `;
+
       if (a.status === 'scheduled') {
         actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#F3F1EA] text-[#1C1C1B] border border-[#D4DDD0] hover:bg-[#E6E4DD] transition" onclick="updateStatus(${a.id}, 'check-in')">Check In</button>`;
       }
       if (a.status === 'scheduled' || a.status === 'waiting') {
-        actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#14241E] text-white hover:bg-[#1E352C] transition" onclick="updateStatus(${a.id}, 'start')">Call In</button>`;
+        actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#14241E] text-white hover:bg-[#1E352C] transition flex items-center gap-1" onclick="callPatientIn(${a.id}, '${a.queue_number}', '${escapeHtml(a.patient_name)}', '${escapeHtml(a.doctor_name)}', '${escapeHtml(roomName)}')"><span>🔔</span><span>Call In</span></button>`;
         actionsHtml += `<button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#F3F1EA] text-[#1C1C1B] border border-[#D4DDD0] hover:bg-[#E6E4DD] transition" onclick="openRescheduleModal(${a.id}, '${escapeHtml(a.patient_name)}', ${a.doctor_id}, '${a.scheduled_datetime}', ${a.duration_minutes || 15})">Reschedule</button>`;
       }
       if (a.status === 'in_progress') {
@@ -1002,10 +1390,18 @@
         badgeClasses = 'bg-[#FDF6B2] text-[#723B13] border-[#FCE96A]';
       }
 
+      let waitBadgeHtml = '';
+      if (a.status === 'waiting') {
+        waitBadgeHtml = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FDF6B2] text-[#723B13] text-[10px] font-semibold">⏱️ ${escapeHtml(waitTelemetry)}</span>`;
+      } else if (a.status === 'in_progress') {
+        waitBadgeHtml = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#EEF2EC] text-[#14241E] text-[10px] font-semibold">🟢 In Consultation</span>`;
+      } else {
+        waitBadgeHtml = `<span class="text-[11px] text-[#6E716A]">${a.duration_minutes || 15} mins</span>`;
+      }
+
       const isHighlighted = highlightApptId && String(highlightApptId) === String(a.id);
       const highlightClass = isHighlighted ? 'row-highlight' : '';
-
-      const searchTerms = `${a.patient_name} ${a.mrn} ${a.queue_number} ${a.doctor_name} ${a.department} ${a.type}`.toLowerCase();
+      const searchTerms = `${a.patient_name} ${a.mrn} ${a.queue_number} ${a.doctor_name} ${a.department} ${roomName} ${a.type}`.toLowerCase();
 
       html += `
         <tr
@@ -1015,7 +1411,7 @@
           class="hover:bg-[#FAF9F5] transition ${highlightClass}"
         >
           <td class="py-4 px-5">
-            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#14241E] text-white font-mono font-bold text-xs">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#14241E] text-white font-mono font-bold text-xs shadow-sm">
               #${a.queue_number}
             </span>
           </td>
@@ -1032,11 +1428,15 @@
           </td>
           <td class="py-4 px-5">
             <p class="font-bold text-[#1C1C1B]">${a.scheduled_time}</p>
-            <p class="text-[11px] text-[#6E716A]">${a.duration_minutes} mins</p>
+            <div class="mt-0.5">${waitBadgeHtml}</div>
           </td>
           <td class="py-4 px-5">
             <p class="font-bold text-[#1C1C1B]">${escapeHtml(a.doctor_name)}</p>
-            <p class="text-[11px] text-[#6E716A]">${escapeHtml(a.department)}</p>
+            <div class="flex items-center gap-1.5 text-[11px] text-[#6E716A] mt-0.5">
+              <span>${escapeHtml(a.department)}</span>
+              <span>•</span>
+              <span class="font-semibold text-[#14241E] bg-[#EEF2EC] px-1.5 py-0.2 rounded text-[10px] border border-[#D4DDD0]">${escapeHtml(roomName)}</span>
+            </div>
           </td>
           <td class="py-4 px-5">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badgeClasses} capitalize">
@@ -1055,13 +1455,70 @@
     applyClientSideFilters();
   }
 
+  // Update Public Waiting Lobby Display Panels
+  function updateLobbyDisplayPanels(appts) {
+    const activeContainer = document.getElementById('lobby-active-list');
+    const waitingContainer = document.getElementById('lobby-waiting-list');
+    if (!activeContainer || !waitingContainer) return;
+
+    if (!appts || appts.length === 0) {
+      activeContainer.innerHTML = '<p class="text-sm text-[#A3A89E] py-6 text-center">No active consultations at this moment.</p>';
+      waitingContainer.innerHTML = '<p class="text-sm text-[#A3A89E] py-6 text-center">No patients in waiting line.</p>';
+      return;
+    }
+
+    const inProgress = appts.filter(a => a.status === 'in_progress');
+    const waiting = appts.filter(a => a.status === 'waiting');
+
+    // Render Active
+    if (inProgress.length === 0) {
+      activeContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">Station idle. Preparing next consultation.</div>';
+    } else {
+      activeContainer.innerHTML = inProgress.map(a => `
+        <div class="p-5 rounded-xl bg-emerald-950/40 border-2 border-emerald-500/50 flex items-center justify-between gap-4 shadow-lg animate-pulse-slow">
+          <div class="flex items-center gap-4">
+            <span class="text-4xl font-mono font-black text-emerald-400">#${a.queue_number}</span>
+            <div>
+              <p class="text-base font-bold text-white">${escapeHtml(a.patient_name)}</p>
+              <p class="text-xs text-[#A3A89E]">${escapeHtml(a.doctor_name)} • ${escapeHtml(a.department)}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="px-3 py-1.5 rounded-lg bg-emerald-500 text-[#14241E] font-bold text-sm uppercase tracking-wide">
+              ${escapeHtml(a.consultation_room || 'Suite 101')}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render Waiting
+    if (waiting.length === 0) {
+      waitingContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">All checked-in patients have been called.</div>';
+    } else {
+      waitingContainer.innerHTML = waiting.slice(0, 6).map(a => `
+        <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <span class="text-xl font-mono font-bold text-amber-300">#${a.queue_number}</span>
+            <div>
+              <p class="text-xs font-semibold text-white">${escapeHtml(a.patient_name)}</p>
+              <p class="text-[11px] text-[#A3A89E]">${escapeHtml(a.doctor_name)} • ${escapeHtml(a.consultation_room || 'Suite 101')}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-[11px] text-amber-300 font-semibold">${escapeHtml(a.wait_text || 'Waiting')}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
   function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
   setInterval(() => {
-    // Only auto-sync if not typing in search
     const searchVal = document.getElementById('filter-search')?.value;
     if (!searchVal) {
       fetchLiveQueue();

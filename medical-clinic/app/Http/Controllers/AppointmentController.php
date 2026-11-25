@@ -44,6 +44,61 @@ class AppointmentController extends Controller
 
         $appointments = $query->get();
 
+        // Compute queue telemetry (wait time and patients ahead) per doctor
+        $inProgressByDoctor = $appointments->where('status', 'in_progress')->groupBy('doctor_id');
+        $waitingByDoctor = $appointments->where('status', 'waiting')->groupBy('doctor_id');
+
+        $calcWaitTelemetry = function (Appointment $appt) use ($inProgressByDoctor, $waitingByDoctor) {
+            $docId = $appt->doctor_id;
+            $hasInProgress = isset($inProgressByDoctor[$docId]) && $inProgressByDoctor[$docId]->isNotEmpty();
+            $waitingList = $waitingByDoctor[$docId] ?? collect();
+
+            if ($appt->status === 'in_progress') {
+                return [
+                    'position' => 0,
+                    'patients_ahead' => 0,
+                    'wait_text' => 'In Consultation',
+                    'wait_minutes' => 0,
+                ];
+            }
+
+            if ($appt->status === 'waiting') {
+                $aheadCount = $waitingList->filter(function ($other) use ($appt) {
+                    return $other->queue_number < $appt->queue_number;
+                })->count() + ($hasInProgress ? 1 : 0);
+
+                $minutes = max(5, $aheadCount * ($appt->duration_minutes ?: 15));
+
+                return [
+                    'position' => $aheadCount + 1,
+                    'patients_ahead' => $aheadCount,
+                    'wait_text' => $aheadCount === 0 ? 'Next in Line' : "~{$minutes}m ({$aheadCount} ahead)",
+                    'wait_minutes' => $minutes,
+                ];
+            }
+
+            if ($appt->status === 'scheduled') {
+                return [
+                    'position' => null,
+                    'patients_ahead' => null,
+                    'wait_text' => 'Scheduled',
+                    'wait_minutes' => null,
+                ];
+            }
+
+            return [
+                'position' => null,
+                'patients_ahead' => null,
+                'wait_text' => ucfirst($appt->status),
+                'wait_minutes' => 0,
+            ];
+        };
+
+        // Attach telemetry to each appointment for the blade view
+        $appointments->each(function (Appointment $appt) use ($calcWaitTelemetry) {
+            $appt->setAttribute('telemetry', $calcWaitTelemetry($appt));
+        });
+
         // Compute KPIs for today's board
         $kpiQuery = Appointment::whereDate('scheduled_at', $selectedDate);
         if ($doctorId) {
@@ -60,7 +115,7 @@ class AppointmentController extends Controller
 
         // Format appointments for dynamic JSON feed
         if ($request->wantsJson() || $request->query('feed') === '1') {
-            $data = $appointments->map(function (Appointment $appt) {
+            $data = $appointments->map(function (Appointment $appt) use ($calcWaitTelemetry) {
                 // Extract cancellation reason from notes if present
                 $cancellationReason = '';
                 if ($appt->status === 'cancelled' && $appt->notes) {
@@ -70,6 +125,8 @@ class AppointmentController extends Controller
                         $cancellationReason = $appt->notes;
                     }
                 }
+
+                $telemetry = $calcWaitTelemetry($appt);
 
                 return [
                     'id' => $appt->id,
@@ -83,6 +140,10 @@ class AppointmentController extends Controller
                     'doctor_id' => $appt->doctor_id,
                     'doctor_name' => 'Dr. '.($appt->doctor?->user?->last_name ?? 'Doctor'),
                     'department' => $appt->doctor?->department?->name ?? 'General',
+                    'consultation_room' => $appt->doctor?->consultation_room ?? 'Suite 101',
+                    'wait_text' => $telemetry['wait_text'],
+                    'patients_ahead' => $telemetry['patients_ahead'],
+                    'wait_minutes' => $telemetry['wait_minutes'],
                     'type' => ucfirst($appt->type),
                     'status' => $appt->status,
                     'cancellation_reason' => $cancellationReason,
