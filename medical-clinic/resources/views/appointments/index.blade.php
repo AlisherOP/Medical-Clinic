@@ -748,11 +748,15 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4">
         <div class="text-right">
           <p id="lobbyLiveClock" class="font-mono font-bold text-xl text-emerald-400">00:00:00</p>
           <p class="text-[10px] uppercase tracking-wider text-[#A3A89E]">{{ \Carbon\Carbon::parse($selectedDate)->format('l, F j, Y') }}</p>
         </div>
+        <button type="button" onclick="toggleLobbyFullscreen()" class="px-3.5 py-2 rounded-lg border border-white/20 text-xs font-semibold text-[#E6E4DD] hover:bg-white/10 transition flex items-center gap-1.5" title="Toggle Fullscreen">
+          <span>⛶</span>
+          <span>Fullscreen</span>
+        </button>
         <button type="button" onclick="closeLobbyDisplay()" class="px-4 py-2 rounded-lg border border-white/20 text-xs font-semibold text-[#E6E4DD] hover:bg-white/10 transition">
           Exit Display ✕
         </button>
@@ -783,24 +787,24 @@
         </div>
       </div>
 
-      <!-- Right: Next In Line (Waiting Queue) -->
+      <!-- Right: Next In Line (Waiting Queue & Upcoming) -->
       <div class="bg-[#182C24] p-6 rounded-2xl border border-white/10 flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
             <div class="flex items-center gap-2.5">
               <span class="w-3 h-3 rounded-full bg-amber-400"></span>
-              <h2 class="text-lg font-bold tracking-wider uppercase text-white">Next In Line (Waiting Lobby)</h2>
+              <h2 class="text-lg font-bold tracking-wider uppercase text-white">Queue &amp; Upcoming Visits</h2>
             </div>
-            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Waiting</span>
+            <span id="lobby-queue-count-pill" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Queue</span>
           </div>
 
           <div id="lobby-waiting-list" class="space-y-3">
-            <!-- Dynamic waiting cards -->
+            <!-- Dynamic waiting and scheduled cards -->
           </div>
         </div>
 
         <div class="p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-[#A3A89E] text-center">
-          Please proceed to your assigned Consultation Suite when your ticket number is called.
+          Please check in with reception or proceed to your assigned Consultation Suite when your ticket number is called.
         </div>
       </div>
     </div>
@@ -923,9 +927,21 @@
     const modal = document.getElementById('lobbyDisplayModal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
     if (clockInterval) {
       clearInterval(clockInterval);
       clockInterval = null;
+    }
+  }
+
+  function toggleLobbyFullscreen() {
+    const modal = document.getElementById('lobbyDisplayModal');
+    if (!document.fullscreenElement) {
+      modal.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
     }
   }
 
@@ -1462,17 +1478,24 @@
     if (!activeContainer || !waitingContainer) return;
 
     if (!appts || appts.length === 0) {
-      activeContainer.innerHTML = '<p class="text-sm text-[#A3A89E] py-6 text-center">No active consultations at this moment.</p>';
-      waitingContainer.innerHTML = '<p class="text-sm text-[#A3A89E] py-6 text-center">No patients in waiting line.</p>';
+      activeContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">Station idle. Preparing next consultation.</div>';
+      waitingContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">No scheduled or waiting visits for this date.</div>';
       return;
     }
 
     const inProgress = appts.filter(a => a.status === 'in_progress');
     const waiting = appts.filter(a => a.status === 'waiting');
+    const scheduled = appts.filter(a => a.status === 'scheduled');
+    const upcomingQueue = [...waiting, ...scheduled];
 
-    // Render Active
+    const countPill = document.getElementById('lobby-queue-count-pill');
+    if (countPill) {
+      countPill.textContent = `${waiting.length} In Lobby • ${scheduled.length} Scheduled`;
+    }
+
+    // Render Active (Now Calling / In Consultation)
     if (inProgress.length === 0) {
-      activeContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">Station idle. Preparing next consultation.</div>';
+      activeContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">Station idle. All doctors ready for next patient.</div>';
     } else {
       activeContainer.innerHTML = inProgress.map(a => `
         <div class="p-5 rounded-xl bg-emerald-950/40 border-2 border-emerald-500/50 flex items-center justify-between gap-4 shadow-lg animate-pulse-slow">
@@ -1492,24 +1515,40 @@
       `).join('');
     }
 
-    // Render Waiting
-    if (waiting.length === 0) {
-      waitingContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">All checked-in patients have been called.</div>';
+    // Render Upcoming Queue (Waiting in Lobby + Scheduled Today)
+    if (upcomingQueue.length === 0) {
+      waitingContainer.innerHTML = '<div class="p-6 rounded-xl bg-white/5 border border-white/10 text-center text-[#A3A89E] text-sm">No visits currently in waiting lobby or scheduled.</div>';
     } else {
-      waitingContainer.innerHTML = waiting.slice(0, 6).map(a => `
-        <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <span class="text-xl font-mono font-bold text-amber-300">#${a.queue_number}</span>
-            <div>
-              <p class="text-xs font-semibold text-white">${escapeHtml(a.patient_name)}</p>
-              <p class="text-[11px] text-[#A3A89E]">${escapeHtml(a.doctor_name)} • ${escapeHtml(a.consultation_room || 'Suite 101')}</p>
+      waitingContainer.innerHTML = upcomingQueue.slice(0, 10).map(a => {
+        const isWaiting = a.status === 'waiting';
+        const numColor = isWaiting ? 'text-amber-300' : 'text-emerald-300';
+        const badgeClasses = isWaiting
+          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+          : 'bg-white/10 text-[#C4C7BE] border-white/10';
+        const statusLabel = isWaiting
+          ? (a.wait_text ? `⏱️ ${a.wait_text}` : 'In Lobby')
+          : `📅 Scheduled ${a.scheduled_time}`;
+
+        return `
+          <div class="p-3.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-4 hover:bg-white/10 transition">
+            <div class="flex items-center gap-3.5">
+              <span class="text-xl font-mono font-bold ${numColor}">#${a.queue_number}</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <p class="text-xs font-semibold text-white">${escapeHtml(a.patient_name)}</p>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badgeClasses}">
+                    ${isWaiting ? 'In Lobby' : 'Scheduled'}
+                  </span>
+                </div>
+                <p class="text-[11px] text-[#A3A89E] mt-0.5">${escapeHtml(a.doctor_name)} • ${escapeHtml(a.consultation_room || 'Suite 101')}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-[11px] font-semibold text-white/90">${escapeHtml(statusLabel)}</span>
             </div>
           </div>
-          <div class="text-right">
-            <span class="text-[11px] text-amber-300 font-semibold">${escapeHtml(a.wait_text || 'Waiting')}</span>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
   }
 
@@ -1517,6 +1556,10 @@
     if (!str) return '';
     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    fetchLiveQueue();
+  });
 
   setInterval(() => {
     const searchVal = document.getElementById('filter-search')?.value;
