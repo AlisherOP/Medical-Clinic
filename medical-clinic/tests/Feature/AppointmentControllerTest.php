@@ -200,4 +200,78 @@ class AppointmentControllerTest extends TestCase
         $this->assertEquals('cancelled', $fresh->status);
         $this->assertStringContainsString('Cancellation reason: Patient called in to reschedule next week.', $fresh->notes);
     }
+
+    public function test_can_reschedule_appointment_and_reassign_doctor(): void
+    {
+        $patient = Patient::factory()->create();
+        $doctor1 = Doctor::factory()->create();
+        $doctor2 = Doctor::factory()->create();
+
+        $appointment = Appointment::factory()
+            ->for($patient)
+            ->for($doctor1)
+            ->create([
+                'scheduled_at' => now()->addDays(2)->setHour(10)->setMinute(0)->setSecond(0),
+                'duration_minutes' => 15,
+                'queue_number' => 1,
+                'status' => 'scheduled',
+            ]);
+
+        $newTime = now()->addDays(3)->setHour(14)->setMinute(0)->setSecond(0);
+
+        $response = $this->patchJson("/appointments/{$appointment->id}/reschedule", [
+            'doctor_id' => $doctor2->id,
+            'scheduled_at' => $newTime->toDateTimeString(),
+            'duration_minutes' => 30,
+            'notes' => 'Transferred to specialist doctor2',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+
+        $fresh = $appointment->fresh();
+        $this->assertEquals($doctor2->id, $fresh->doctor_id);
+        $this->assertEquals(30, $fresh->duration_minutes);
+        $this->assertEquals($newTime->format('Y-m-d H:i:s'), $fresh->scheduled_at->format('Y-m-d H:i:s'));
+        $this->assertStringContainsString('Transferred to specialist doctor2', $fresh->notes);
+    }
+
+    public function test_reschedule_prevents_overlap_for_target_doctor(): void
+    {
+        $patient1 = Patient::factory()->create();
+        $patient2 = Patient::factory()->create();
+        $doctor = Doctor::factory()->create();
+
+        $existingTime = now()->addDays(2)->setHour(11)->setMinute(0)->setSecond(0);
+
+        // Existing booking at 11:00 (15 mins)
+        Appointment::factory()
+            ->for($patient1)
+            ->for($doctor)
+            ->create([
+                'scheduled_at' => $existingTime,
+                'duration_minutes' => 15,
+                'status' => 'scheduled',
+            ]);
+
+        // Second appointment originally booked for another time
+        $appointmentToMove = Appointment::factory()
+            ->for($patient2)
+            ->for($doctor)
+            ->create([
+                'scheduled_at' => now()->addDays(2)->setHour(15)->setMinute(0)->setSecond(0),
+                'duration_minutes' => 15,
+                'status' => 'scheduled',
+            ]);
+
+        // Attempting to reschedule right over 11:00
+        $response = $this->patchJson("/appointments/{$appointmentToMove->id}/reschedule", [
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => $existingTime->toDateTimeString(),
+            'duration_minutes' => 15,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['scheduled_at']);
+    }
 }

@@ -214,7 +214,7 @@
                     </button>
 
                     <p class="register-text">
-                        Don't have an account? <a href="{{ route('register') }}">Register</a>
+                        New staff member? <a href="{{ route('register') }}">Register</a>
                     </p>
                 </form>
 

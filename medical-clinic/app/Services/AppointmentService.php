@@ -88,6 +88,89 @@ class AppointmentService
     }
 
     /**
+     * Reschedule an appointment and/or reassign doctor safely with overlap prevention.
+     *
+     * @param  array{
+     *     doctor_id: int,
+     *     scheduled_at: string|\DateTimeInterface,
+     *     duration_minutes?: int,
+     *     notes?: ?string
+     * }  $data
+     *
+     * @throws ValidationException
+     */
+    public function reschedule(Appointment $appointment, array $data): Appointment
+    {
+        if (in_array($appointment->status, ['completed', 'cancelled'], true)) {
+            throw ValidationException::withMessages([
+                'status' => "Cannot reschedule an appointment in '{$appointment->status}' status.",
+            ]);
+        }
+
+        return DB::transaction(function () use ($appointment, $data) {
+            $targetDoctorId = (int) $data['doctor_id'];
+            $doctor = Doctor::where('id', $targetDoctorId)->lockForUpdate()->firstOrFail();
+
+            $start = Carbon::parse($data['scheduled_at']);
+            $duration = (int) ($data['duration_minutes'] ?? $appointment->duration_minutes ?? 15);
+
+            if ($duration <= 0) {
+                throw ValidationException::withMessages([
+                    'duration_minutes' => 'Appointment duration must be at least 1 minute.',
+                ]);
+            }
+
+            $end = (clone $start)->addMinutes($duration);
+
+            // Check for overlapping active appointments for target doctor, excluding this appointment
+            $overlap = Appointment::where('doctor_id', $doctor->id)
+                ->where('id', '!=', $appointment->id)
+                ->whereNotIn('status', ['cancelled', 'no_show'])
+                ->where(function ($query) use ($start, $end) {
+                    $query->whereRaw(
+                        'scheduled_at < ? AND DATE_ADD(scheduled_at, INTERVAL duration_minutes MINUTE) > ?',
+                        [$end->toDateTimeString(), $start->toDateTimeString()]
+                    );
+                })
+                ->exists();
+
+            if ($overlap) {
+                throw ValidationException::withMessages([
+                    'scheduled_at' => 'The selected doctor already has an active appointment during this time window.',
+                ]);
+            }
+
+            // Recalculate queue number if doctor or date changed
+            $currentDate = Carbon::parse($appointment->scheduled_at)->toDateString();
+            $newDate = $start->toDateString();
+            $queueNumber = $appointment->queue_number;
+
+            if ($appointment->doctor_id !== $doctor->id || $currentDate !== $newDate) {
+                $queueNumber = (int) (Appointment::where('doctor_id', $doctor->id)
+                    ->whereDate('scheduled_at', $newDate)
+                    ->where('id', '!=', $appointment->id)
+                    ->max('queue_number') ?? 0) + 1;
+            }
+
+            $notes = $appointment->notes;
+            if (! empty($data['notes'])) {
+                $notes = $notes ? "{$notes}\nRescheduled: {$data['notes']}" : "Rescheduled: {$data['notes']}";
+            }
+
+            $appointment->update([
+                'doctor_id' => $doctor->id,
+                'scheduled_at' => $start,
+                'duration_minutes' => $duration,
+                'queue_number' => $queueNumber,
+                'status' => 'scheduled',
+                'notes' => $notes,
+            ]);
+
+            return $appointment;
+        });
+    }
+
+    /**
      * Mark patient as arrived and waiting in queue.
      */
     public function checkIn(Appointment $appointment): Appointment

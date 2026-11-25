@@ -2,18 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RegisterController extends Controller
 {
     /**
-     * Show the public patient registration page.
+     * Staff roles that can be created through public registration.
+     * Patient accounts and administrator accounts are intentionally excluded.
+     */
+    private const REGISTRABLE_ROLES = [
+        'doctor',
+        'receptionist',
+        'nurse',
+        'lab_technician',
+        'pharmacist',
+        'cashier',
+    ];
+
+    /**
+     * Show the staff registration page.
      */
     public function create(): View|RedirectResponse
     {
@@ -21,11 +34,13 @@ class RegisterController extends Controller
             return redirect()->route('appointments.index');
         }
 
-        return view('auth.register');
+        return view('auth.register', [
+            'roles' => self::REGISTRABLE_ROLES,
+        ]);
     }
 
     /**
-     * Register a new patient account.
+     * Register a new staff account.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -33,16 +48,15 @@ class RegisterController extends Controller
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'email', 'max:150', 'unique:users,email'],
+            'role' => ['required', 'string', Rule::in(self::REGISTRABLE_ROLES)],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         $user = DB::transaction(function () use ($validated): User {
             $user = new User($validated);
-            // Public registration always creates a patient account.
-            $user->role = 'patient';
+            // 'role' is not mass-assignable, so it must be set explicitly.
+            $user->role = $validated['role'];
             $user->save();
-
-            $user->patient()->create(['mrn' => $this->generateMrn()]);
 
             return $user;
         });
@@ -52,18 +66,6 @@ class RegisterController extends Controller
         $request->session()->regenerate();
 
         return redirect()->route('appointments.index')
-            ->with('success', "Welcome, {$user->first_name}! Your patient account has been created.");
-    }
-
-    /**
-     * Generate a unique medical record number for the new patient.
-     */
-    private function generateMrn(): string
-    {
-        do {
-            $mrn = 'MRN-'.str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        } while (Patient::where('mrn', $mrn)->exists());
-
-        return $mrn;
+            ->with('success', "Welcome, {$user->first_name}! Your staff account has been created.");
     }
 }

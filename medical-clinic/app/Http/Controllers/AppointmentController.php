@@ -77,7 +77,10 @@ class AppointmentController extends Controller
                     'patient_name' => $appt->patient?->user?->full_name ?? 'Unknown Patient',
                     'mrn' => $appt->patient?->mrn ?? 'N/A',
                     'scheduled_time' => Carbon::parse($appt->scheduled_at)->format('H:i'),
+                    'scheduled_date' => Carbon::parse($appt->scheduled_at)->toDateString(),
+                    'scheduled_datetime' => Carbon::parse($appt->scheduled_at)->format('Y-m-d\TH:i'),
                     'duration_minutes' => $appt->duration_minutes ?? 15,
+                    'doctor_id' => $appt->doctor_id,
                     'doctor_name' => 'Dr. '.($appt->doctor?->user?->last_name ?? 'Doctor'),
                     'department' => $appt->doctor?->department?->name ?? 'General',
                     'type' => ucfirst($appt->type),
@@ -197,6 +200,27 @@ class AppointmentController extends Controller
             'success' => true,
             'message' => 'Appointment cancelled.',
             'status' => $updated->status,
+        ]);
+    }
+
+    /**
+     * Reschedule appointment and optionally reassign doctor.
+     */
+    public function reschedule(Request $request, Appointment $appointment): JsonResponse
+    {
+        $validated = $request->validate([
+            'doctor_id' => ['required', 'exists:doctors,id'],
+            'scheduled_at' => ['required', 'date'],
+            'duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $updated = $this->appointmentService->reschedule($appointment, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Appointment rescheduled to {$updated->scheduled_at->format('M d, Y H:i')}.",
+            'appointment' => $updated->load(['patient.user', 'doctor.user']),
         ]);
     }
 }

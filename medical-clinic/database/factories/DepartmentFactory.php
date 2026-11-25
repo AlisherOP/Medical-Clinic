@@ -12,11 +12,7 @@ class DepartmentFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->randomElement([
-                'General Medicine', 'Cardiology', 'Pediatrics', 'Neurology',
-                'Orthopedics', 'Dermatology', 'Gynecology', 'Ophthalmology',
-                'ENT', 'Surgery', 'Radiology', 'Emergency',
-            ]),
+            'name' => ucfirst(fake()->unique()->word()) . ' Department',
         ];
     }
 }

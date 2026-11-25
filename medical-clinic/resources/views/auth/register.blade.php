@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register | Medical Clinic</title>
+    <title>Staff Register | Medical Clinic</title>
     <style>
         :root {
             --primary: #0284c7;
@@ -68,7 +68,8 @@
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
         .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; color: var(--text-main); background: #ffffff; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-        .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12); }
+        .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; color: var(--text-main); background: #ffffff; outline: none; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12); }
         .form-row { display: flex; gap: 12px; }
         .form-row .form-group { flex: 1; }
         .field-error { display: block; font-size: 12px; color: var(--danger); margin-top: 5px; }
@@ -156,8 +157,8 @@
     <main class="login-container">
         <header class="login-topbar">
             <div>
-                <h1 class="login-topbar-title">Patient Registration</h1>
-                <p class="login-topbar-sub">Create your Medical Clinic account</p>
+                <h1 class="login-topbar-title">Staff Registration</h1>
+                <p class="login-topbar-sub">Create your Medical Clinic staff account</p>
             </div>
             <button type="button" class="btn btn-secondary" onclick="history.back()">
                 <span>←</span> Back
@@ -166,8 +167,8 @@
 
         <div class="login-area">
             <div class="login-card">
-                <h2 class="login-heading">Create your account</h2>
-                <p class="login-subheading">Register as a patient to book and manage appointments.</p>
+                <h2 class="login-heading">Create your staff account</h2>
+                <p class="login-subheading">Register a staff account to access the clinic workspace.</p>
 
                 @if($errors->any())
                     <div class="alert alert-danger">
@@ -230,6 +231,21 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="role">Staff Role</label>
+                        <select id="role" name="role" required>
+                            <option value="" disabled {{ old('role') ? '' : 'selected' }}>Select your role</option>
+                            @foreach($roles as $role)
+                                <option value="{{ $role }}" {{ old('role') === $role ? 'selected' : '' }}>
+                                    {{ \Illuminate\Support\Str::headline($role) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('role')
+                            <span class="field-error">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
                         <label for="password">Password</label>
                         <input
                             type="password"
@@ -265,7 +281,7 @@
                     </p>
                 </form>
 
-                <p class="login-footnote">Medical Clinic Hospital System &bull; Patient portal</p>
+                <p class="login-footnote">Medical Clinic Hospital System &bull; Authorized staff only</p>
             </div>
         </div>
     </main>

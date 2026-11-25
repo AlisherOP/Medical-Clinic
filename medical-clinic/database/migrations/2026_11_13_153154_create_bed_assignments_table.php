@@ -17,10 +17,10 @@ return new class extends Migration
             $table->dateTime('discharged_at')->nullable();
             $table->enum('status', ['admitted', 'discharged', 'transferred'])->default('admitted');
             
-            $table->unsignedBigInteger('active_bed_id')->nullable()->storedAs('IF(discharged_at IS NULL, bed_id, NULL)');
+            $table->unsignedBigInteger('active_bed_id')->nullable()->storedAs("CASE WHEN discharged_at IS NULL THEN bed_id ELSE NULL END");
             $table->unique('active_bed_id', 'unique_active_bed');
             
-            $table->unsignedBigInteger('active_patient_id')->nullable()->storedAs('IF(discharged_at IS NULL, patient_id, NULL)');
+            $table->unsignedBigInteger('active_patient_id')->nullable()->storedAs("CASE WHEN discharged_at IS NULL THEN patient_id ELSE NULL END");
             $table->unique('active_patient_id', 'unique_active_patient');
 
             $table->timestamps();
