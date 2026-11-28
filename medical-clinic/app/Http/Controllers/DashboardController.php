@@ -260,11 +260,14 @@ class DashboardController extends Controller
             ?? $user?->name
             ?? 'Charge Station';
 
+        $expiresAt = now()->addHours(12);
+
         Cache::put('qms_active_broadcast', [
             'message' => trim($validated['message']),
             'sender' => $sender,
             'sent_at' => now()->format('H:i'),
-        ], now()->addHours(12));
+            'expires_at' => $expiresAt->format('H:i'),
+        ], $expiresAt);
 
         return redirect()->route('dashboard')->with('status', 'Clinic alert broadcast to all active stations.');
     }
