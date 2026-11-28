@@ -145,6 +145,9 @@
               <p class="font-medium">{{ $activeBroadcast['message'] }}</p>
               <p class="text-[10px] text-[#A3A89E] mt-0.5">
                 Sent by {{ $activeBroadcast['sender'] ?? 'Station' }} at {{ $activeBroadcast['sent_at'] ?? '' }}
+                @if(!empty($activeBroadcast['expires_at']))
+                  · Auto-clears at {{ $activeBroadcast['expires_at'] }}
+                @endif
               </p>
             </div>
           </div>
@@ -482,39 +485,73 @@
   </div>
 
   <!-- BROADCAST ALERT MODAL -->
-  <div id="broadcastModal" class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-    <form method="POST" action="{{ route('dashboard.broadcast') }}" class="bg-white rounded-xl border border-[#E6E4DD] max-w-md w-full p-6 space-y-4">
-      @csrf
-      <div class="flex items-center justify-between border-b border-[#E6E4DD] pb-3">
+  <div id="broadcastModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl border border-[#E6E4DD] p-6 space-y-4">
+      <div class="flex items-center justify-between">
         <div>
-          <h4 class="text-base font-bold text-[#1C1C1B]">Broadcast Clinic Alert</h4>
-          <p class="text-[11px] text-[#6E716A]">Post a persistent operational notice across active stations</p>
+          <h3 class="text-base font-bold text-[#1C1C1B]">Broadcast Clinic Alert</h3>
+          <p class="text-[11px] text-[#6E716A]">Pick a quick preset or type a custom notice (up to 12 hrs)</p>
         </div>
-        <button type="button" onclick="closeBroadcastModal()" class="text-xs text-[#6E716A] hover:text-[#1C1C1B]">✕</button>
+        <button type="button" onclick="closeBroadcastModal()" class="text-xs text-[#6E716A] hover:text-[#1C1C1B] font-semibold">
+          ✕
+        </button>
       </div>
-      <div class="space-y-2 text-xs">
-        <label for="broadcastInput" class="block font-semibold text-[#1C1C1B]">Alert Message</label>
+
+      <!-- Quick Presets -->
+      <div class="space-y-1.5">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-[#6E716A]">Quick Presets</p>
+        <div class="flex flex-wrap gap-1.5 text-[11px]">
+          <button 
+            type ="button"
+            onclick="useBroadcastPreset('Outpatient queue running ~15 mins behind schedule.')"
+            class="px-2.5 py-1 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] hover:bg-[#EEF2EC] transition"
+          >
+            +15m Queue Delay
+          </button>
+          <button
+            type="button"
+            onclick="useBroadcastPreset('Laboratory results processing slightly delayed; urgent orders prioritized.')"
+            class="px-2.5 py-1 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] hover:bg-[#EEF2EC] transition"
+          >
+            Lab Delay
+          </button>
+          <button
+            type="button"
+            onclick="useBroadcastPreset('Shift handover in progress across nursing and front-desk stations.')"
+            class="px-2.5 py-1 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] hover:bg-[#EEF2EC] transition"
+          >
+            Shift Handover
+          </button>
+        </div>
+      </div>
+
+    <form method="POST" action="{{ route('dashboard.broadcast') }}" class="space-y-4">
+      @csrf
+      <div>
+        <label for="broadcastMessageInput" class="block text-xs font-semibold text-[#1C1C1B] mb-1">
+          Alert Message
+        </label>
         <textarea
-          id="broadcastInput"
+          id="broadcastMessageInput"
           name="message"
           rows="3"
-          required
           maxlength="280"
-          placeholder="e.g. Outpatient Wing B intake queue running 10 minutes behind schedule."
-          class="w-full p-2.5 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-[#1C1C1B] outline-none focus:border-[#14241E]"
+          required
+          placeholder="Type a clinic-wide notice..."
+          class="w-full px-3 py-2 rounded-lg bg-[#F9F8F4] border border-[#E6E4DD] text-xs text-[#1C1C1B] outline-none focus:border-[#14241E]"
         ></textarea>
       </div>
-      <div class="flex items-center justify-end gap-2 text-xs pt-2">
+      <div class="flex items-center justify-end gap-2 text-xs">
         <button
           type="button"
           onclick="closeBroadcastModal()"
-          class="px-3.5 py-2 rounded-lg border border-[#E6E4DD] text-[#1C1C1B] font-semibold hover:bg-[#F9F8F4]"
+          class="px-4 py-2 rounded-lg border border-[#E6E4DD] text-[#1C1C1B] font-semibold hover:bg-[#F9F8F4] transition"
         >
           Cancel
         </button>
         <button
           type="submit"
-          class="px-4 py-2 rounded-lg bg-[#14241E] text-white font-semibold hover:bg-[#1E352C]"
+          class="px-4 py-2 rounded-lg bg-[#14241E] text-white font-semibold hover:bg-[#1E352C] transition"
         >
           Send Notice
         </button>
@@ -524,13 +561,26 @@
 
   <script>
     function openBroadcastModal() {
-      document.getElementById('broadcastModal').classList.remove('hidden');
-      document.getElementById('broadcastInput').focus();
+      const modal = document.getElementById('broadcastModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.getElementById('broadcastMessageInput')?.focus();
     }
 
     function closeBroadcastModal() {
-      document.getElementById('broadcastModal').classList.add('hidden');
+      const modal = document.getElementById('broadcastModal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
     }
+
+    function useBroadcastPreset(text) {
+      const input = document.getElementById('broadcastMessageInput');
+      if (!input) return;
+      input.value = text;
+      input.focus();
+    } 
   </script>
 
 </body>
